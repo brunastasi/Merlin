@@ -1,0 +1,6 @@
+@Moana_HostAddress = http://localhost:5218
+
+GET {{Moana_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
