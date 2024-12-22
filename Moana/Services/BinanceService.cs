@@ -6,6 +6,7 @@ using CryptoExchange.Net.Authentication;
 using CryptoExchange.Net.Objects.Sockets;
 using Microsoft.Extensions.Options;
 using Moana.Configurations;
+using Newtonsoft.Json;
 
 namespace Moana.Services
 {
@@ -28,6 +29,7 @@ namespace Moana.Services
             _binanceClient = new BinanceRestClient(options =>
             {
                 options.ApiCredentials = credentials;
+                options.AutoTimestamp = true;
             });
 
             _socketClient = new BinanceSocketClient(options =>
@@ -261,6 +263,61 @@ namespace Moana.Services
 
             return result.Data;
         }
+
+        public async Task<decimal> GetOpenInterestAsync(string symbol)
+        {
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetOpenInterestAsync(symbol);
+            return result.Success ? result.Data.OpenInterest : 0m;
+        }
+
+        public async Task<decimal> GetFundingRateAsync(string symbol)
+        {
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetFundingRatesAsync(symbol);
+            return result.Success && result.Data.Any() ? result.Data.First().FundingRate : 0m;
+        }
+
+        // TODO : VERIFIER API
+        public async Task<decimal> GetLongShortRatioAsync(string symbol)
+        {
+            // Récupérer les informations de position
+            var result = await _binanceClient.UsdFuturesApi.Account.GetPositionInformationAsync(symbol);
+
+            if (result.Success && result.Data.Any())
+            {
+                Console.WriteLine($"Position Data: {JsonConvert.SerializeObject(result.Data, Formatting.Indented)}");
+
+                var longPositions = result.Data.Where(p => p.Quantity > 0).Sum(p => p.Quantity);
+                var shortPositions = result.Data.Where(p => p.Quantity < 0).Sum(p => Math.Abs(p.Quantity));
+
+                // Calculer le ratio long/court
+                return shortPositions > 0 ? longPositions / shortPositions : 1; // Ratio long/court
+            } 
+            else
+            {
+                Console.WriteLine($"Erreur : {result.Error?.Message}");
+            }
+
+            return 0m; // Aucun résultat ou erreur
+        }
+
+        public async Task<decimal> GetFuturesVolumeAsync(string symbol, KlineInterval interval, int limit = 100)
+        {
+            // Récupérer les Klines pour les futures
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetKlinesAsync(symbol, interval, limit: limit);
+
+            if (result.Success && result.Data.Any())
+            {
+                // Additionner les volumes des dernières Klines
+                var firstKline = result.Data.First();
+                Console.WriteLine($"Kline Data: {JsonConvert.SerializeObject(firstKline, Formatting.Indented)}");
+
+                return result.Data.Sum(k => k.Volume); // BaseVolume correspond au volume échangé
+            }
+
+            return 0m; // Retourne 0 en cas d'erreur
+        }
+
+
 
         /// <summary>
         /// Obtient le prix actuel pour une paire de trading.

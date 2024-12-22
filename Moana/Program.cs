@@ -16,6 +16,7 @@ builder.Services.AddScoped<VolumeService>();
 builder.Services.AddScoped<TrendService>();
 builder.Services.AddScoped<IndicatorsService>();
 builder.Services.AddScoped<LiquidityService>();
+builder.Services.AddScoped<DerivativesService>();
 
 var serviceProvider = builder.Services.BuildServiceProvider();
 
@@ -25,6 +26,7 @@ var volumeService = serviceProvider.GetRequiredService<VolumeService>();
 var trendService = serviceProvider.GetRequiredService<TrendService>();
 var indicatorsService = serviceProvider.GetRequiredService<IndicatorsService>();
 var liquidityService = serviceProvider.GetRequiredService<LiquidityService>();
+var derivativesService = serviceProvider.GetRequiredService<DerivativesService>();
 
 
 
@@ -93,20 +95,30 @@ app.MapControllers();
 //Console.WriteLine($"OBV : {indicators.OBV}");
 
 // LIQUIDITY SERVICE
-var symbol = "BTCUSDT";
-var amountsToTest = new decimal[] { 20000, 50000, 100000 }; // Tester différents montants
+//var symbol = "BTCUSDT";
+//var amountsToTest = new decimal[] { 20000, 50000, 100000 }; // Tester différents montants
 
-foreach (var amount in amountsToTest)
-{
-    Console.WriteLine($"Test avec un montant de {amount} USD");
-    var liquidityData = await liquidityService.GetLiquidityDataAsync(symbol, amount);
-    Console.WriteLine($"Profondeur du Carnet d'Ordres : {liquidityData.OrderBookDepth}");
-    Console.WriteLine($"Spread : {liquidityData.Spread}");
-    Console.WriteLine($"Volume des 10 Premiers Ordres : {liquidityData.TopOrderVolume}");
-    Console.WriteLine($"Slippage : {liquidityData.Slippage}");
-    Console.WriteLine($"Score de Liquidité : {liquidityData.LiquidityScore}");
-    Console.WriteLine("-------------------");
-}
+//foreach (var amount in amountsToTest)
+//{
+//    Console.WriteLine($"Test avec un montant de {amount} USD");
+//    var liquidityData = await liquidityService.GetLiquidityDataAsync(symbol, amount);
+//    Console.WriteLine($"Profondeur du Carnet d'Ordres : {liquidityData.OrderBookDepth}");
+//    Console.WriteLine($"Spread : {liquidityData.Spread}");
+//    Console.WriteLine($"Volume des 10 Premiers Ordres : {liquidityData.TopOrderVolume}");
+//    Console.WriteLine($"Slippage : {liquidityData.Slippage}");
+//    Console.WriteLine($"Score de Liquidité : {liquidityData.LiquidityScore}");
+//    Console.WriteLine("-------------------");
+//}
+
+// DERIVATIVES SERVICE
+
+var derivativesData = await derivativesService.GetDerivativesDataAsync("BTCUSDT");
+
+Console.WriteLine($"Open Interest : {derivativesData.OpenInterest}");
+Console.WriteLine($"Funding Rate : {derivativesData.FundingRate}");
+Console.WriteLine($"Long/Short Ratio : {derivativesData.LongShortRatio}");
+Console.WriteLine($"Futures Volume : {derivativesData.FuturesVolume}");
+Console.WriteLine($"Last Updated : {derivativesData.LastUpdated}");
 
 app.Run();
 

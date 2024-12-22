@@ -6,5 +6,7 @@
         public decimal OpenInterest { get; set; }  // Intérêt ouvert sur les contrats
         public decimal FundingRate { get; set; }  // Taux de financement des contrats perpétuels
         public decimal LongShortRatio { get; set; } // Ratio des positions longues/courtes
+        public decimal FuturesVolume { get; set; } // Volume sur les futures
+        public DateTime LastUpdated { get; set; } // Dernière mise à jour
     }
 }
