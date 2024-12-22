@@ -12,5 +12,11 @@
         public decimal[] ParabolicSAR { get; set; }
         public decimal VWAP { get; set; }
         public decimal ADX { get; set; }
+        public decimal CMF { get; set; }  // Chaikin Money Flow
+        public decimal RVI { get; set; }  // Relative Vigor Index
+        public decimal WilliamsR { get; set; }  // Williams %R
+        public decimal ADL { get; set; }  // Accumulation/Distribution Line
+        public decimal CMO { get; set; }  // Chande Momentum Oscillator
+        public decimal OBV { get; set; }  // On-Balance Volume
     }
 }

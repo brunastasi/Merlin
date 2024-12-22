@@ -26,6 +26,7 @@ namespace Moana.Services.MarketData
             var historicalPrices = await _binanceService.GetHistoricalPricesAsync(symbol, interval);
             var highs = await _binanceService.GetHighPricesAsync(symbol, interval);
             var lows = await _binanceService.GetLowPricesAsync(symbol, interval);
+            var opens = await _binanceService.GetOpenPricesAsync(symbol, interval); // Ajout de l'ouverture
             var closes = await _binanceService.GetClosePricesAsync(symbol, interval);
             var volumes = await _binanceService.GetVolumesAsync(symbol, interval); // Récupération des volumes
 
@@ -42,6 +43,12 @@ namespace Moana.Services.MarketData
             var vwap = CalculateVWAP(highs, lows, closes, volumes); // Calcul du VWAP
             var adx = CalculateADX(highs, lows, closes, 14);
 
+            var cmf = CalculateCMF(highs, lows, closes, volumes, 14);
+            var rvi = CalculateRVI(opens, closes, highs, lows, 14);
+            var williamsR = CalculateWilliamsR(highs, lows, closes, 14);
+            var adl = CalculateADL(highs, lows, closes, volumes);
+            var cmo = CalculateCMO(closes, 14);
+            var obv = CalculateOBV(closes, volumes);
 
             return new IndicatorData
             {
@@ -53,7 +60,13 @@ namespace Moana.Services.MarketData
                 Stochastic = stochastic,
                 ParabolicSAR = parabolicSAR,
                 VWAP = vwap,
-                ADX = adx
+                ADX = adx,
+                CMF = cmf,
+                RVI = rvi,
+                WilliamsR = williamsR,
+                ADL = adl,
+                CMO = cmo,
+                OBV = obv,
             };
         }
 
@@ -184,7 +197,6 @@ namespace Moana.Services.MarketData
             return totalVolume == 0 ? 0 : totalTypicalPriceVolume / totalVolume; // VWAP
         }
 
-
         private decimal CalculateADX(decimal[] highs, decimal[] lows, decimal[] closes, int period)
         {
             if (highs.Length < period || lows.Length < period || closes.Length < period) return 0;
@@ -204,15 +216,23 @@ namespace Moana.Services.MarketData
                 minusDM[i] = mdm > pdm ? mdm : 0;
             }
 
-            var smoothedTR = IndicatorCalculations.CalculateSMA(trueRanges, period);
-            var smoothedPlusDM = IndicatorCalculations.CalculateSMA(plusDM, period);
-            var smoothedMinusDM = IndicatorCalculations.CalculateSMA(minusDM, period);
+            decimal smoothedTR = IndicatorCalculations.CalculateSMA(trueRanges, period);
+            decimal smoothedPlusDM = IndicatorCalculations.CalculateSMA(plusDM, period);
+            decimal smoothedMinusDM = IndicatorCalculations.CalculateSMA(minusDM, period);
 
-            var plusDI = smoothedPlusDM / smoothedTR * 100;
-            var minusDI = smoothedMinusDM / smoothedTR * 100;
+            if (smoothedTR == 0) return 0;
 
-            var dx = Math.Abs(plusDI - minusDI) / (plusDI + minusDI) * 100;
-            return IndicatorCalculations.CalculateSMA([dx], period);
+            decimal plusDI = (smoothedPlusDM / smoothedTR) * 100;
+            decimal minusDI = (smoothedMinusDM / smoothedTR) * 100;
+
+            decimal[] dxArray = new decimal[highs.Length - period];
+            for (int i = 0; i < dxArray.Length; i++)
+            {
+                dxArray[i] = Math.Abs(plusDI - minusDI) / (plusDI + minusDI) * 100;
+            }
+
+            // Calcul de l'ADX avec SMA
+            return IndicatorCalculations.CalculateSMA(dxArray, period);
         }
 
         private decimal CalculateCMF(decimal[] highs, decimal[] lows, decimal[] closes, decimal[] volumes, int period)
@@ -230,7 +250,9 @@ namespace Moana.Services.MarketData
                 totalVolume += volumes[i];
             }
 
-            return totalVolume == 0 ? 0 : moneyFlowVolume / totalVolume;
+            if (totalVolume == 0) return 0;
+
+            return moneyFlowVolume / totalVolume;
         }
 
         private decimal CalculateRVI(decimal[] opens, decimal[] closes, decimal[] highs, decimal[] lows, int period)
@@ -247,7 +269,9 @@ namespace Moana.Services.MarketData
                 denominator += highs[i] - lows[i];
             }
 
-            return denominator == 0 ? 0 : numerator / denominator;
+            if (denominator == 0) return 0;
+
+            return numerator / denominator;
         }
 
         private decimal CalculateWilliamsR(decimal[] highs, decimal[] lows, decimal[] closes, int period)

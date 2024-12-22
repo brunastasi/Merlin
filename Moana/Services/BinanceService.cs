@@ -226,6 +226,18 @@ namespace Moana.Services
             return result.Data.Select(k => k.LowPrice).ToArray();
         }
 
+        public async Task<decimal[]> GetOpenPricesAsync(string symbol, KlineInterval interval)
+        {
+            var result = await _binanceClient.SpotApi.ExchangeData.GetKlinesAsync(symbol, interval);
+
+            if (!result.Success || result.Data == null)
+            {
+                throw new Exception($"Erreur lors de la récupération des ouvertures : {result.Error?.Message}");
+            }
+
+            return result.Data.Select(k => k.OpenPrice).ToArray(); // Extraire les prix d'ouverture
+        }
+
         public async Task<decimal[]> GetClosePricesAsync(string symbol, KlineInterval interval)
         {
             var result = await _binanceClient.SpotApi.ExchangeData.GetKlinesAsync(symbol, interval);
@@ -236,6 +248,18 @@ namespace Moana.Services
             }
 
             return result.Data.Select(k => k.ClosePrice).ToArray();
+        }
+
+        public async Task<BinanceOrderBook> GetOrderBookAsync(string symbol, int limit)
+        {
+            var result = await _binanceClient.SpotApi.ExchangeData.GetOrderBookAsync(symbol, limit);
+
+            if (!result.Success || result.Data == null)
+            {
+                throw new Exception($"Erreur lors de la récupération du carnet d'ordres : {result.Error?.Message}");
+            }
+
+            return result.Data;
         }
 
         /// <summary>

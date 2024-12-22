@@ -15,6 +15,7 @@ builder.Services.AddHttpClient<OpenAIService>();
 builder.Services.AddScoped<VolumeService>();
 builder.Services.AddScoped<TrendService>();
 builder.Services.AddScoped<IndicatorsService>();
+builder.Services.AddScoped<LiquidityService>();
 
 var serviceProvider = builder.Services.BuildServiceProvider();
 
@@ -23,6 +24,7 @@ var binanceService = serviceProvider.GetRequiredService<BinanceService>();
 var volumeService = serviceProvider.GetRequiredService<VolumeService>();
 var trendService = serviceProvider.GetRequiredService<TrendService>();
 var indicatorsService = serviceProvider.GetRequiredService<IndicatorsService>();
+var liquidityService = serviceProvider.GetRequiredService<LiquidityService>();
 
 
 
@@ -69,20 +71,42 @@ app.MapControllers();
 //Console.WriteLine($"Resistance Level : {trendData.ResistanceLevel}");
 
 //INDICATOR SERVICE
-var symbol = "BTCUSDT";
-var interval = KlineInterval.OneHour;
-var indicators = await indicatorsService.GetIndicatorsAsync(symbol, interval);
+//var symbol = "BTCUSDT";
+//var interval = KlineInterval.FourHour;
+//var indicators = await indicatorsService.GetIndicatorsAsync(symbol, interval);
 
-Console.WriteLine($"RSI : {indicators.RSI}");
-Console.WriteLine($"MACD Line : {indicators.MACD.Line}");
-Console.WriteLine($"MACD Signal : {indicators.MACD.Signal}");
-Console.WriteLine($"Bollinger Bands : Upper = {indicators.BollingerBands.Upper}, Middle = {indicators.BollingerBands.Middle}, Lower = {indicators.BollingerBands.Lower}");
-Console.WriteLine($"ATR : {indicators.ATR}");
-Console.WriteLine($"Ichimoku : TenkanSen = {indicators.Ichimoku.TenkanSen}, KijunSen = {indicators.Ichimoku.KijunSen}, SenkouSpanA = {indicators.Ichimoku.SenkouSpanA}, SenkouSpanB = {indicators.Ichimoku.SenkouSpanB}");
-Console.WriteLine($"Stochastic : %K = {indicators.Stochastic.PercentK}, %D = {indicators.Stochastic.PercentD}");
-Console.WriteLine($"VWAP : {indicators.VWAP}");
-Console.WriteLine($"Parabolic SAR : {string.Join(", ", indicators.ParabolicSAR)}");
-Console.WriteLine($"ADX : {indicators.ADX}");
+//Console.WriteLine($"RSI : {indicators.RSI}");
+//Console.WriteLine($"MACD Line : {indicators.MACD.Line}");
+//Console.WriteLine($"MACD Signal : {indicators.MACD.Signal}");
+//Console.WriteLine($"Bollinger Bands : Upper = {indicators.BollingerBands.Upper}, Middle = {indicators.BollingerBands.Middle}, Lower = {indicators.BollingerBands.Lower}");
+//Console.WriteLine($"ATR : {indicators.ATR}");
+//Console.WriteLine($"Ichimoku : TenkanSen = {indicators.Ichimoku.TenkanSen}, KijunSen = {indicators.Ichimoku.KijunSen}, SenkouSpanA = {indicators.Ichimoku.SenkouSpanA}, SenkouSpanB = {indicators.Ichimoku.SenkouSpanB}");
+//Console.WriteLine($"Stochastic : %K = {indicators.Stochastic.PercentK}, %D = {indicators.Stochastic.PercentD}");
+//Console.WriteLine($"VWAP : {indicators.VWAP}");
+//Console.WriteLine($"Parabolic SAR : {string.Join(", ", indicators.ParabolicSAR)}");
+//Console.WriteLine($"ADX : {indicators.ADX}");
+//Console.WriteLine($"CMF : {indicators.CMF}");
+//Console.WriteLine($"RVI : {indicators.RVI}");
+//Console.WriteLine($"Williams %R : {indicators.WilliamsR}");
+//Console.WriteLine($"ADL : {indicators.ADL}");
+//Console.WriteLine($"CMO : {indicators.CMO}");
+//Console.WriteLine($"OBV : {indicators.OBV}");
+
+// LIQUIDITY SERVICE
+var symbol = "BTCUSDT";
+var amountsToTest = new decimal[] { 20000, 50000, 100000 }; // Tester différents montants
+
+foreach (var amount in amountsToTest)
+{
+    Console.WriteLine($"Test avec un montant de {amount} USD");
+    var liquidityData = await liquidityService.GetLiquidityDataAsync(symbol, amount);
+    Console.WriteLine($"Profondeur du Carnet d'Ordres : {liquidityData.OrderBookDepth}");
+    Console.WriteLine($"Spread : {liquidityData.Spread}");
+    Console.WriteLine($"Volume des 10 Premiers Ordres : {liquidityData.TopOrderVolume}");
+    Console.WriteLine($"Slippage : {liquidityData.Slippage}");
+    Console.WriteLine($"Score de Liquidité : {liquidityData.LiquidityScore}");
+    Console.WriteLine("-------------------");
+}
 
 app.Run();
 

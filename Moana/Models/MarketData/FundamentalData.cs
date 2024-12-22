@@ -3,9 +3,10 @@
     // Analyses fondamentales ou économiques
     public class FundamentalData
     {
-        public string NewsHeadline { get; set; }
-        public string Source { get; set; }
-        public DateTime PublishedDate { get; set; }
-        public string ImpactLevel { get; set; }  // Exemple : High, Medium, Low
+        public DateTime Date { get; set; }
+        public string Title { get; set; }
+        public string Description { get; set; }
+        public string Impact { get; set; } // Positif, Neutre, Négatif
     }
+
 }
