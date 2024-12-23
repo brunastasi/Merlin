@@ -3,6 +3,7 @@ using Moana.Configurations;
 using Moana.Models.ApiData;
 using Moana.Models.MarketData;
 using Moana.Services.Utils;
+using System.Globalization;
 using System.Text.Json;
 
 namespace Moana.Services
@@ -85,6 +86,52 @@ namespace Moana.Services
                 throw new Exception("Impossible de récupérer les données de l'inflation.");
 
             return response.Data;
+        }
+
+        public async Task<List<decimal>> GetHistoricalPricesAsync(string symbol, string type = "crypto", string interval = "daily")
+        {
+            string url = type.ToLower() switch
+            {
+                "crypto" => $"https://www.alphavantage.co/query?function=DIGITAL_CURRENCY_DAILY&symbol={symbol}&market=USD&apikey={_apiKey}",
+                "stock" => $"https://www.alphavantage.co/query?function=TIME_SERIES_{interval.ToUpper()}&symbol={symbol}&apikey={_apiKey}",
+                _ => throw new ArgumentException("Type d'actif invalide. Utilisez 'crypto' ou 'stock'.")
+            };
+
+            var response = await _httpClient.GetStringAsync(url);
+
+            var jsonResponse = JsonSerializer.Deserialize<Dictionary<string, object>>(response);
+
+            if (jsonResponse.ContainsKey("Note") || jsonResponse.ContainsKey("Error Message"))
+            {
+                string errorMessage = jsonResponse.ContainsKey("Note") ? jsonResponse["Note"].ToString() : jsonResponse["Error Message"].ToString();
+                throw new Exception($"Erreur de l'API Alpha Vantage : {errorMessage}");
+            }
+
+            var timeSeriesKey = type.ToLower() == "crypto" ? "Time Series (Digital Currency Daily)" : $"Time Series ({interval})";
+            if (!jsonResponse.ContainsKey(timeSeriesKey))
+                throw new Exception("Les données historiques ne sont pas disponibles.");
+
+            var timeSeries = jsonResponse[timeSeriesKey] as JsonElement?;
+            if (timeSeries == null)
+                throw new Exception("Les données historiques ne sont pas disponibles.");
+
+            var prices = new List<decimal>();
+            foreach (var element in timeSeries.Value.EnumerateObject())
+            {
+                if (element.Value.TryGetProperty("4. close", out var closePrice) || element.Value.TryGetProperty("4a. close (USD)", out closePrice))
+                {
+                    if (decimal.TryParse(closePrice.GetString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var closePriceDecimal))
+                    {
+                        prices.Add(closePriceDecimal);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Impossible de convertir {closePrice.GetString()} en decimal pour la date {element.Name}.");
+                    }
+                }
+            }
+
+            return prices;
         }
 
     }

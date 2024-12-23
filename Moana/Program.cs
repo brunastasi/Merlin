@@ -3,6 +3,7 @@ using Moana.Configurations;
 using Moana.Models.MarketData;
 using Moana.Services;
 using Moana.Services.MarketData;
+using System.Net.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +27,7 @@ builder.Services.AddScoped<DerivativesService>();
 builder.Services.AddScoped<FundamentalService>();
 builder.Services.AddScoped<SentimentService>();
 builder.Services.AddScoped<EconomicEventService>();
+builder.Services.AddScoped<CorrelationService>();
 
 var serviceProvider = builder.Services.BuildServiceProvider();
 
@@ -39,6 +41,7 @@ var derivativesService = serviceProvider.GetRequiredService<DerivativesService>(
 var fundamentalService = serviceProvider.GetRequiredService<FundamentalService>();
 var sentimentService = serviceProvider.GetRequiredService<SentimentService>();
 var economicEventService = serviceProvider.GetRequiredService<EconomicEventService>();
+var correlationService = serviceProvider.GetRequiredService<CorrelationService>();
 
 
 
@@ -64,7 +67,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 
-
+#region Test Service
 // VOLUME SERVICE TEST
 // Tester le service avec une paire de trading
 //var symbol = "BTCUSDT";
@@ -156,11 +159,30 @@ app.MapControllers();
 
 // ECONOMIC EVENT SERVICE
 
-var events = await economicEventService.GetEconomicEventsAsync();
+//var events = await economicEventService.GetEconomicEventsAsync();
 
-foreach (var ev in events)
+//foreach (var ev in events)
+//{
+//    Console.WriteLine($"Date : {ev.EventDate}, Titre : {ev.Title}, Description : {ev.Description}, Impact : {ev.ImpactLevel}, Pays : {ev.Country}");
+//}
+
+#endregion
+
+// CORRELATION SERVICE
+
+var assets = new List<(string Asset, string Type)>
 {
-    Console.WriteLine($"Date : {ev.EventDate}, Titre : {ev.Title}, Description : {ev.Description}, Impact : {ev.ImpactLevel}, Pays : {ev.Country}");
+    ("BTC", "crypto"),
+    ("ETH", "crypto"),
+    ("AAPL", "stock"),
+    ("MSFT", "stock")
+};
+
+var correlationData = await correlationService.GetCorrelationDataAsync(assets, "daily");
+
+foreach (var data in correlationData)
+{
+    Console.WriteLine($"{data.Asset1} - {data.Asset2} : Corrélation = {data.CorrelationCoefficient}");
 }
 
 
