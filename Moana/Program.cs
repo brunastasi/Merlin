@@ -1,18 +1,20 @@
 using Binance.Net.Enums;
 using Moana.Configurations;
+using Moana.Models.MarketData;
 using Moana.Services;
 using Moana.Services.MarketData;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var test = builder.Services.Configure<BinanceOptions>(builder.Configuration.GetSection("API").GetSection("Binance"));
+builder.Services.Configure<BinanceOptions>(builder.Configuration.GetSection("API").GetSection("Binance"));
 builder.Services.Configure<OpenAIOptions>(builder.Configuration.GetSection("API").GetSection("OpenAI"));
 builder.Services.Configure<NewsAPIOptions>(builder.Configuration.GetSection("API").GetSection("NewsAPI"));
 
 // Add services to the container.
-builder.Services.AddScoped<BinanceService>();
+builder.Services.AddHttpClient<BinanceService>();
 builder.Services.AddHttpClient<OpenAIService>();
 builder.Services.AddHttpClient<NewsAPIService>();
+builder.Services.AddHttpClient<AlternativeAPIService>();
 
 builder.Services.AddScoped<VolumeService>();
 builder.Services.AddScoped<TrendService>();
@@ -20,6 +22,7 @@ builder.Services.AddScoped<IndicatorsService>();
 builder.Services.AddScoped<LiquidityService>();
 builder.Services.AddScoped<DerivativesService>();
 builder.Services.AddScoped<FundamentalService>();
+builder.Services.AddScoped<SentimentService>();
 
 var serviceProvider = builder.Services.BuildServiceProvider();
 
@@ -31,6 +34,7 @@ var indicatorsService = serviceProvider.GetRequiredService<IndicatorsService>();
 var liquidityService = serviceProvider.GetRequiredService<LiquidityService>();
 var derivativesService = serviceProvider.GetRequiredService<DerivativesService>();
 var fundamentalService = serviceProvider.GetRequiredService<FundamentalService>();
+var sentimentService = serviceProvider.GetRequiredService<SentimentService>();
 
 
 
@@ -120,23 +124,31 @@ app.MapControllers();
 
 //Console.WriteLine($"Open Interest : {derivativesData.OpenInterest}");
 //Console.WriteLine($"Funding Rate : {derivativesData.FundingRate}");
-//Console.WriteLine($"Long/Short Ratio : {derivativesData.LongShortRatio}");
+//Console.WriteLine($"Long/Short Ratio: {derivativesData.LongShortRatio}");
+//Console.WriteLine($"Long Positions: {derivativesData.LongPositions}");
+//Console.WriteLine($"Short Positions: {derivativesData.ShortPositions}");
 //Console.WriteLine($"Futures Volume : {derivativesData.FuturesVolume}");
 //Console.WriteLine($"Last Updated : {derivativesData.LastUpdated}");
 
 // FUNDAMENTAL SERVICE
 
-var newsData = await fundamentalService.GetMarketNewsAsync("BTC");
-foreach (var news in newsData)
-{
-    Console.WriteLine($"Date: {news.Date}");
-    Console.WriteLine($"Title: {news.Title}");
-    Console.WriteLine($"Description: {news.Description}");
-    Console.WriteLine($"Impact: {news.Impact}");
-    Console.WriteLine($"Summary: {news.Summary}");
-    Console.WriteLine($"Source: {news.Source}");
-    Console.WriteLine("-------------------");
-}
+//var newsData = await fundamentalService.GetMarketNewsAsync("BTC");
+//foreach (var news in newsData)
+//{
+//    Console.WriteLine($"Date: {news.Date}");
+//    Console.WriteLine($"Title: {news.Title}");
+//    Console.WriteLine($"Description: {news.Description}");
+//    Console.WriteLine($"Impact: {news.Impact}");
+//    Console.WriteLine($"Summary: {news.Summary}");
+//    Console.WriteLine($"Source: {news.Source}");
+//    Console.WriteLine("-------------------");
+//}
+
+// SENTIMENT SERVICE
+//var sentimentData = await sentimentService.GetMarketSentimentAsync();
+
+//Console.WriteLine($"Fear & Greed Index: {sentimentData.FearGreedIndex}");
+//Console.WriteLine($"Sentiment Classification: {sentimentData.SentimentClassification}");
 
 app.Run();
 

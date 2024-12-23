@@ -6,24 +6,33 @@ using CryptoExchange.Net.Authentication;
 using CryptoExchange.Net.Objects.Sockets;
 using Microsoft.Extensions.Options;
 using Moana.Configurations;
+using Moana.Models.ApiData;
 using Newtonsoft.Json;
+using System.Net.Http;
+using System.Net.Http.Headers;
 
 namespace Moana.Services
 {
     public class BinanceService
     {
+        private readonly HttpClient _httpClient;
         // Récupération de données ou passage d'ordre.
         private readonly BinanceRestClient _binanceClient;
         // Ecoute en temps réel des mises à jour (variation de prix..)
         private readonly BinanceSocketClient _socketClient;
 
 
-        public BinanceService(IOptions<BinanceOptions> options)
+        public BinanceService(HttpClient httpClient ,IOptions<BinanceOptions> options)
         {
             var apiKey = options.Value.ApiKey;
             var apiSecret = options.Value.ApiSecret;
 
             ApiCredentials credentials = new ApiCredentials(apiKey, apiSecret);
+
+            _httpClient = httpClient;
+
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            _httpClient.DefaultRequestHeaders.Add("X-MBX-APIKEY", apiKey);
 
             // Utilisation correcte d'une Action pour configurer les options
             _binanceClient = new BinanceRestClient(options =>
@@ -277,7 +286,7 @@ namespace Moana.Services
         }
 
         // TODO : VERIFIER API
-        public async Task<decimal> GetLongShortRatioAsync(string symbol)
+        public async Task<decimal> GetLongShortRatioAsyncTEST(string symbol)
         {
             // Récupérer les informations de position
             var result = await _binanceClient.UsdFuturesApi.Account.GetPositionInformationAsync(symbol);
@@ -298,6 +307,29 @@ namespace Moana.Services
             }
 
             return 0m; // Aucun résultat ou erreur
+        }
+
+        /// <summary>
+        /// Récupère les données du ratio long/short depuis Binance.
+        /// </summary>
+        /// <param name="symbol">Symbole de la paire (ex. : BTCUSDT).</param>
+        /// <returns>Les données du ratio long/short.</returns>
+        public async Task<List<LongShortRatioApiResponse>> GetLongShortRatioAsync(string symbol)
+        {
+            if (string.IsNullOrWhiteSpace(symbol))
+                throw new ArgumentException("Le symbole ne peut pas être vide", nameof(symbol));
+
+            // Construire l'URL de l'endpoint
+            string url = $"https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol={symbol}&period=5m";
+
+            // Envoyer la requête GET
+            var response = await _httpClient.GetFromJsonAsync<List<LongShortRatioApiResponse>>(url);
+
+            // Vérifier si la réponse est valide
+            if (response == null || !response.Any())
+                throw new Exception("Erreur lors de la récupération des données de ratio long/short.");
+
+            return response;
         }
 
         public async Task<decimal> GetFuturesVolumeAsync(string symbol, KlineInterval interval, int limit = 100)
