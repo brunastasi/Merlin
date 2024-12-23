@@ -7,16 +7,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 var test = builder.Services.Configure<BinanceOptions>(builder.Configuration.GetSection("API").GetSection("Binance"));
 builder.Services.Configure<OpenAIOptions>(builder.Configuration.GetSection("API").GetSection("OpenAI"));
+builder.Services.Configure<NewsAPIOptions>(builder.Configuration.GetSection("API").GetSection("NewsAPI"));
 
 // Add services to the container.
 builder.Services.AddScoped<BinanceService>();
 builder.Services.AddHttpClient<OpenAIService>();
+builder.Services.AddHttpClient<NewsAPIService>();
 
 builder.Services.AddScoped<VolumeService>();
 builder.Services.AddScoped<TrendService>();
 builder.Services.AddScoped<IndicatorsService>();
 builder.Services.AddScoped<LiquidityService>();
 builder.Services.AddScoped<DerivativesService>();
+builder.Services.AddScoped<FundamentalService>();
 
 var serviceProvider = builder.Services.BuildServiceProvider();
 
@@ -27,6 +30,7 @@ var trendService = serviceProvider.GetRequiredService<TrendService>();
 var indicatorsService = serviceProvider.GetRequiredService<IndicatorsService>();
 var liquidityService = serviceProvider.GetRequiredService<LiquidityService>();
 var derivativesService = serviceProvider.GetRequiredService<DerivativesService>();
+var fundamentalService = serviceProvider.GetRequiredService<FundamentalService>();
 
 
 
@@ -112,13 +116,27 @@ app.MapControllers();
 
 // DERIVATIVES SERVICE
 
-var derivativesData = await derivativesService.GetDerivativesDataAsync("BTCUSDT");
+//var derivativesData = await derivativesService.GetDerivativesDataAsync("BTCUSDT");
 
-Console.WriteLine($"Open Interest : {derivativesData.OpenInterest}");
-Console.WriteLine($"Funding Rate : {derivativesData.FundingRate}");
-Console.WriteLine($"Long/Short Ratio : {derivativesData.LongShortRatio}");
-Console.WriteLine($"Futures Volume : {derivativesData.FuturesVolume}");
-Console.WriteLine($"Last Updated : {derivativesData.LastUpdated}");
+//Console.WriteLine($"Open Interest : {derivativesData.OpenInterest}");
+//Console.WriteLine($"Funding Rate : {derivativesData.FundingRate}");
+//Console.WriteLine($"Long/Short Ratio : {derivativesData.LongShortRatio}");
+//Console.WriteLine($"Futures Volume : {derivativesData.FuturesVolume}");
+//Console.WriteLine($"Last Updated : {derivativesData.LastUpdated}");
+
+// FUNDAMENTAL SERVICE
+
+var newsData = await fundamentalService.GetMarketNewsAsync("BTC");
+foreach (var news in newsData)
+{
+    Console.WriteLine($"Date: {news.Date}");
+    Console.WriteLine($"Title: {news.Title}");
+    Console.WriteLine($"Description: {news.Description}");
+    Console.WriteLine($"Impact: {news.Impact}");
+    Console.WriteLine($"Summary: {news.Summary}");
+    Console.WriteLine($"Source: {news.Source}");
+    Console.WriteLine("-------------------");
+}
 
 app.Run();
 
