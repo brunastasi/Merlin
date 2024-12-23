@@ -9,12 +9,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<BinanceOptions>(builder.Configuration.GetSection("API").GetSection("Binance"));
 builder.Services.Configure<OpenAIOptions>(builder.Configuration.GetSection("API").GetSection("OpenAI"));
 builder.Services.Configure<NewsAPIOptions>(builder.Configuration.GetSection("API").GetSection("NewsAPI"));
+builder.Services.Configure<AlphaVantageOptions>(builder.Configuration.GetSection("API").GetSection("AlphaVantage"));
 
 // Add services to the container.
 builder.Services.AddHttpClient<BinanceService>();
 builder.Services.AddHttpClient<OpenAIService>();
 builder.Services.AddHttpClient<NewsAPIService>();
 builder.Services.AddHttpClient<AlternativeAPIService>();
+builder.Services.AddHttpClient<AlphaVantageService>();
 
 builder.Services.AddScoped<VolumeService>();
 builder.Services.AddScoped<TrendService>();
@@ -23,6 +25,7 @@ builder.Services.AddScoped<LiquidityService>();
 builder.Services.AddScoped<DerivativesService>();
 builder.Services.AddScoped<FundamentalService>();
 builder.Services.AddScoped<SentimentService>();
+builder.Services.AddScoped<EconomicEventService>();
 
 var serviceProvider = builder.Services.BuildServiceProvider();
 
@@ -35,6 +38,7 @@ var liquidityService = serviceProvider.GetRequiredService<LiquidityService>();
 var derivativesService = serviceProvider.GetRequiredService<DerivativesService>();
 var fundamentalService = serviceProvider.GetRequiredService<FundamentalService>();
 var sentimentService = serviceProvider.GetRequiredService<SentimentService>();
+var economicEventService = serviceProvider.GetRequiredService<EconomicEventService>();
 
 
 
@@ -149,6 +153,16 @@ app.MapControllers();
 
 //Console.WriteLine($"Fear & Greed Index: {sentimentData.FearGreedIndex}");
 //Console.WriteLine($"Sentiment Classification: {sentimentData.SentimentClassification}");
+
+// ECONOMIC EVENT SERVICE
+
+var events = await economicEventService.GetEconomicEventsAsync();
+
+foreach (var ev in events)
+{
+    Console.WriteLine($"Date : {ev.EventDate}, Titre : {ev.Title}, Description : {ev.Description}, Impact : {ev.ImpactLevel}, Pays : {ev.Country}");
+}
+
 
 app.Run();
 
