@@ -1,5 +1,6 @@
 using Binance.Net.Enums;
 using Moana.Configurations;
+using Moana.Models;
 using Moana.Models.MarketData;
 using Moana.Services;
 using Moana.Services.MarketData;
@@ -170,20 +171,33 @@ app.MapControllers();
 
 // CORRELATION SERVICE
 
-var assets = new List<(string Asset, string Type)>
+//var assets = new List<(string Asset, string Type)>
+//{
+//    ("BTC", "crypto"),
+//    ("ETH", "crypto"),
+//    ("AAPL", "stock"),
+//    ("MSFT", "stock")
+//};
+
+//var correlationData = await correlationService.GetCorrelationDataAsync(assets, "daily");
+
+//foreach (var data in correlationData)
+//{
+//    Console.WriteLine($"{data.Asset1} - {data.Asset2} : Corrélation = {data.CorrelationCoefficient}");
+//}
+
+// STRATEGIE TRADING
+
+var userPreferences = new UserPreferences
 {
-    ("BTC", "crypto"),
-    ("ETH", "crypto"),
-    ("AAPL", "stock"),
-    ("MSFT", "stock")
+    Budget = 10000m, // 10 000 USD
+    RiskManagement = new RiskManagement
+    {
+        StopLoss = 5, // 5% du budget
+        TakeProfit = 10 // 10% du budget
+    }
 };
 
-var correlationData = await correlationService.GetCorrelationDataAsync(assets, "daily");
-
-foreach (var data in correlationData)
-{
-    Console.WriteLine($"{data.Asset1} - {data.Asset2} : Corrélation = {data.CorrelationCoefficient}");
-}
 
 
 app.Run();
