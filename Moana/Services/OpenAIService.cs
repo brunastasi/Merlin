@@ -55,15 +55,16 @@ namespace Moana.Services
                 model = "gpt-4",
                 messages = new[]
                 {
-                    new { role = "system", content = "You are a trading assistant. Analyze the following market data and provide a trading strategy (BUY/SELL/HOLD), Stop Loss, and Take Profit recommendations." },
+                    new { role = "system", content = "You are a trading assistant. Analyze the following market data and provide a trading strategy strictly in JSON format. Use the following structure: { \\\"Action\\\": \\\"BUY/SELL/HOLD\\\", \\\"StopLoss\\\": decimal, \\\"TakeProfit\\\": decimal, \\\"Confidence\\\": \\\"High/Medium/Low\\\"" },
                     new { role = "user", content = marketDataJson }
-                }
+                },
+                max_tokens = 400 // Propriété correcte pour limiter le nombre de tokens dans la réponse
             };
 
             try
             {
                 // Envoi de la requête à l'API OpenAI
-                var response = await _httpClient.PostAsJsonAsync($"https://api.openai.com/v1/chat/completions", requestBody);
+                var response = await _httpClient.PostAsJsonAsync("https://api.openai.com/v1/chat/completions", requestBody);
 
                 // Vérifie si le statut HTTP est correct
                 response.EnsureSuccessStatusCode();
@@ -81,9 +82,12 @@ namespace Moana.Services
                     return "La réponse de l'API OpenAI ne contient pas de choix valides.";
                 }
             }
+            catch (HttpRequestException ex)
+            {
+                return $"Erreur HTTP lors de l'analyse des données de marché : {ex.Message}";
+            }
             catch (Exception ex)
             {
-                // Gestion des erreurs (par exemple, des exceptions HTTP ou JSON)
                 return $"Erreur lors de l'analyse des données de marché : {ex.Message}";
             }
         }

@@ -29,11 +29,14 @@ builder.Services.AddScoped<FundamentalService>();
 builder.Services.AddScoped<SentimentService>();
 builder.Services.AddScoped<EconomicEventService>();
 builder.Services.AddScoped<CorrelationService>();
+builder.Services.AddScoped<DataAggregatorService>();
+builder.Services.AddScoped<TradingStrategyService>();
 
 var serviceProvider = builder.Services.BuildServiceProvider();
 
 // Récupérer BinanceService depuis le conteneur DI
 var binanceService = serviceProvider.GetRequiredService<BinanceService>();
+var openAIService = serviceProvider.GetRequiredService<OpenAIService>();
 var volumeService = serviceProvider.GetRequiredService<VolumeService>();
 var trendService = serviceProvider.GetRequiredService<TrendService>();
 var indicatorsService = serviceProvider.GetRequiredService<IndicatorsService>();
@@ -43,6 +46,8 @@ var fundamentalService = serviceProvider.GetRequiredService<FundamentalService>(
 var sentimentService = serviceProvider.GetRequiredService<SentimentService>();
 var economicEventService = serviceProvider.GetRequiredService<EconomicEventService>();
 var correlationService = serviceProvider.GetRequiredService<CorrelationService>();
+var dataAggregatorService = serviceProvider.GetRequiredService<DataAggregatorService>();
+var tradingStrategyService = serviceProvider.GetRequiredService<TradingStrategyService>();
 
 
 
@@ -167,7 +172,6 @@ app.MapControllers();
 //    Console.WriteLine($"Date : {ev.EventDate}, Titre : {ev.Title}, Description : {ev.Description}, Impact : {ev.ImpactLevel}, Pays : {ev.Country}");
 //}
 
-#endregion
 
 // CORRELATION SERVICE
 
@@ -185,20 +189,66 @@ app.MapControllers();
 //{
 //    Console.WriteLine($"{data.Asset1} - {data.Asset2} : Corrélation = {data.CorrelationCoefficient}");
 //}
+#endregion
 
 // STRATEGIE TRADING
 
-var userPreferences = new UserPreferences
+async Task RunStrategyTest()
 {
-    Budget = 10000m, // 10 000 USD
-    RiskManagement = new RiskManagement
+    try
     {
-        StopLoss = 5, // 5% du budget
-        TakeProfit = 10 // 10% du budget
+        // Exemple de données d'entrée
+        string symbol = "BTCUSDT";
+        var assets = new List<(string Asset, string Type)>
+        {
+            ("BTC", "Crypto"),
+            ("ETH", "Crypto"),
+        };
+
+        var userPreferences = new UserPreferences
+        {
+            Budget = 10000, // Exemple : 10 000 USD
+            RiskManagement = new RiskManagement
+            {
+                StopLoss = 5, // 5% Stop Loss
+                TakeProfit = 10 // 10% Take Profit
+            }
+        };
+
+        // Agrégation des données de marché
+        var aggregatedData = await dataAggregatorService.AggregateMarketDataAsync(symbol, assets);
+
+        // Conversion des données agrégées en JSON (pour vérification)
+        var aggregatedDataJson = dataAggregatorService.ConvertMarketDataToJson(aggregatedData);
+        Console.WriteLine("Données agrégées (JSON) :");
+        Console.WriteLine(aggregatedDataJson);
+
+        // Exécution de la stratégie locale
+        var tradingDecision = tradingStrategyService.ExecuteLocalStrategy(aggregatedData, userPreferences);
+
+        // Affichage des résultats de la stratégie
+        Console.WriteLine("Résultat de la stratégie locale :");
+        Console.WriteLine($"Action : {tradingDecision.Action}");
+        Console.WriteLine($"Stop Loss : {tradingDecision.StopLoss}");
+        Console.WriteLine($"Take Profit : {tradingDecision.TakeProfit}");
+        Console.WriteLine($"Confiance : {tradingDecision.Confidence}");
+
+        // Simulation avec l'analyse IA (si activée)
+        var useAIAnalysis = true; // Change ce paramètre selon les besoins
+        if (useAIAnalysis)
+        {
+            var aiResponse = await openAIService.AnalyzeMarketDataAsync(aggregatedDataJson);
+            Console.WriteLine("Analyse IA :");
+            Console.WriteLine(aiResponse);
+        }
     }
-};
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Erreur lors de l'exécution du test : {ex.Message}");
+    }
+}
 
-
+RunStrategyTest();
 
 app.Run();
 

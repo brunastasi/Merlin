@@ -49,6 +49,13 @@ namespace Moana.Services.MarketData
             // Récupérer les indicateurs techniques
             var indicatorData = await _indicatorsService.GetIndicatorsAsync(symbol, KlineInterval.FifteenMinutes);
 
+            // Optimisations des données
+            if (trendData?.HistoricalPrices != null && trendData.HistoricalPrices.Length > 10)
+                trendData.HistoricalPrices = trendData.HistoricalPrices.TakeLast(10).ToArray();
+
+            if (indicatorData?.ParabolicSAR != null && indicatorData.ParabolicSAR.Length > 10)
+                indicatorData.ParabolicSAR = indicatorData.ParabolicSAR.TakeLast(10).ToArray();
+
             // Créer et retourner l'objet agrégé
             return new AggregatedMarketData
             {
@@ -64,13 +71,17 @@ namespace Moana.Services.MarketData
             };
         }
 
-
-
         public string ConvertMarketDataToJson(AggregatedMarketData aggregatedMarketData)
         {
             try
             {
-                return JsonConvert.SerializeObject(aggregatedMarketData, Formatting.Indented);
+                var settings = new JsonSerializerSettings
+                {
+                    NullValueHandling = NullValueHandling.Ignore, // Ignore uniquement les propriétés nulles
+                    Formatting = Formatting.Indented,
+                };
+
+                return JsonConvert.SerializeObject(aggregatedMarketData, settings);
             }
             catch (Exception ex)
             {

@@ -340,9 +340,6 @@ namespace Moana.Services
             if (result.Success && result.Data.Any())
             {
                 // Additionner les volumes des dernières Klines
-                var firstKline = result.Data.First();
-                Console.WriteLine($"Kline Data: {JsonConvert.SerializeObject(firstKline, Formatting.Indented)}");
-
                 return result.Data.Sum(k => k.Volume); // BaseVolume correspond au volume échangé
             }
 
