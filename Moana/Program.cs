@@ -8,7 +8,7 @@ using System.Net.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.Configure<BinanceOptions>(builder.Configuration.GetSection("API").GetSection("Binance"));
+builder.Services.Configure<BinanceOptions>(builder.Configuration.GetSection("API").GetSection("BinanceTest"));
 builder.Services.Configure<OpenAIOptions>(builder.Configuration.GetSection("API").GetSection("OpenAI"));
 builder.Services.Configure<NewsAPIOptions>(builder.Configuration.GetSection("API").GetSection("NewsAPI"));
 builder.Services.Configure<AlphaVantageOptions>(builder.Configuration.GetSection("API").GetSection("AlphaVantage"));
@@ -31,6 +31,7 @@ builder.Services.AddScoped<EconomicEventService>();
 builder.Services.AddScoped<CorrelationService>();
 builder.Services.AddScoped<DataAggregatorService>();
 builder.Services.AddScoped<TradingStrategyService>();
+builder.Services.AddScoped<TradingExecutionService>();
 
 var serviceProvider = builder.Services.BuildServiceProvider();
 
@@ -48,6 +49,7 @@ var economicEventService = serviceProvider.GetRequiredService<EconomicEventServi
 var correlationService = serviceProvider.GetRequiredService<CorrelationService>();
 var dataAggregatorService = serviceProvider.GetRequiredService<DataAggregatorService>();
 var tradingStrategyService = serviceProvider.GetRequiredService<TradingStrategyService>();
+var tradingExecutionService = serviceProvider.GetRequiredService<TradingExecutionService>();
 
 
 
@@ -192,63 +194,124 @@ app.MapControllers();
 #endregion
 
 // STRATEGIE TRADING
+var tradingDecision = new TradingDecision();
 
-async Task RunStrategyTest()
+//async Task RunStrategyTest()
+//{
+//    try
+//    {
+//        // Exemple de données d'entrée
+//        string symbol = "BTCUSDT";
+//        var assets = new List<(string Asset, string Type)>
+//        {
+//            ("BTC", "Crypto"),
+//            ("ETH", "Crypto"),
+//        };
+
+//        var userPreferences = new UserPreferences
+//        {
+//            Budget = 10000, // Exemple : 10 000 USD
+//            RiskManagement = new RiskManagement
+//            {
+//                StopLoss = 5, // 5% Stop Loss
+//                TakeProfit = 10 // 10% Take Profit
+//            }
+//        };
+
+//        // Agrégation des données de marché
+//        var aggregatedData = await dataAggregatorService.AggregateMarketDataAsync(symbol, assets);
+
+//        // Conversion des données agrégées en JSON (pour vérification)
+//        var aggregatedDataJson = dataAggregatorService.ConvertMarketDataToJson(aggregatedData);
+//        Console.WriteLine("Données agrégées (JSON) :");
+//        Console.WriteLine(aggregatedDataJson);
+
+//        // Exécution de la stratégie locale
+//        tradingDecision = tradingStrategyService.ExecuteLocalStrategy(aggregatedData, userPreferences);
+
+//        // Affichage des résultats de la stratégie
+//        Console.WriteLine("Résultat de la stratégie locale :");
+//        Console.WriteLine($"Action : {tradingDecision.Action}");
+//        Console.WriteLine($"Stop Loss : {tradingDecision.StopLoss}");
+//        Console.WriteLine($"Take Profit : {tradingDecision.TakeProfit}");
+//        Console.WriteLine($"Confiance : {tradingDecision.Confidence}");
+
+//        // Simulation avec l'analyse IA (si activée)
+//        var useAIAnalysis = false; // Change ce paramètre selon les besoins
+//        if (useAIAnalysis)
+//        {
+//            var aiResponse = await openAIService.AnalyzeMarketDataAsync(aggregatedDataJson);
+//            Console.WriteLine("Analyse IA :");
+//            Console.WriteLine(aiResponse);
+//        }
+//    }
+//    catch (Exception ex)
+//    {
+//        Console.WriteLine($"Erreur lors de l'exécution du test : {ex.Message}");
+//    }
+//}
+
+//RunStrategyTest();
+
+// TRADING EXECUTION SERVICE
+
+//try
+//{
+//    var price = await tradingExecutionService.GetCurrentPrice("BTCUSDT");
+//    Console.WriteLine($"Prix actuel de BTCUSDT : {price}");
+
+//    var balance = await tradingExecutionService.GetAvailableBalance("BTCUSDT");
+//    Console.WriteLine($"Solde disponible pour BTC : {balance}");
+
+//    var order = await binanceService.PlaceFuturesOrderAsync("BTCUSDT", 0.01m, true);
+//    Console.WriteLine($"Ordre placé avec succès : ID = {order.ClientOrderId}");
+
+//    var openOrders = await binanceService.GetOpenFuturesOrdersAsync("BTCUSDT");
+//    Console.WriteLine($"Ordres ouverts : {openOrders.Count()}");
+
+//    //var orderStatus = await binanceService.GetOrderStatusAsync("BTCUSDT", 17454401);
+//    //Console.WriteLine($"Status de l'ordre : {orderStatus}");
+//}
+//catch (Exception ex)
+//{
+//    Console.WriteLine($"Erreur lors de la récupération du prix : {ex.Message}");
+//}
+
+async Task TestAdvancedOrders()
 {
     try
     {
-        // Exemple de données d'entrée
-        string symbol = "BTCUSDT";
-        var assets = new List<(string Asset, string Type)>
+        var price = await tradingExecutionService.GetCurrentPrice("BTCUSDT");
+        Console.WriteLine($"Prix actuel de BTCUSDT : {price}");
+
+        var balance = await tradingExecutionService.GetAvailableBalance("BTCUSDT");
+        Console.WriteLine($"Solde disponible pour BTC : {balance}");
+
+        var decision = new TradingDecision
         {
-            ("BTC", "Crypto"),
-            ("ETH", "Crypto"),
+            Action = "BUY",
+            StopLoss = Math.Floor(price * 0.95m), // Arrondi à l'entier inférieur
+            TakeProfit = Math.Floor(price * 1.20m), // Arrondi à l'entier inférieur
+            Confidence = "Medium"
         };
 
-        var userPreferences = new UserPreferences
-        {
-            Budget = 10000, // Exemple : 10 000 USD
-            RiskManagement = new RiskManagement
-            {
-                StopLoss = 5, // 5% Stop Loss
-                TakeProfit = 10 // 10% Take Profit
-            }
-        };
+        await tradingExecutionService.ExecuteTradingDecisionAsync(decision, "BTCUSDT", 1000m);
 
-        // Agrégation des données de marché
-        var aggregatedData = await dataAggregatorService.AggregateMarketDataAsync(symbol, assets);
+        Console.WriteLine($"Action : {decision.Action}");
+        Console.WriteLine($"Stop Loss : {decision.StopLoss}");
+        Console.WriteLine($"Take Profit : {decision.TakeProfit}");
+        Console.WriteLine($"Confiance : {decision.Confidence}");
 
-        // Conversion des données agrégées en JSON (pour vérification)
-        var aggregatedDataJson = dataAggregatorService.ConvertMarketDataToJson(aggregatedData);
-        Console.WriteLine("Données agrégées (JSON) :");
-        Console.WriteLine(aggregatedDataJson);
 
-        // Exécution de la stratégie locale
-        var tradingDecision = tradingStrategyService.ExecuteLocalStrategy(aggregatedData, userPreferences);
-
-        // Affichage des résultats de la stratégie
-        Console.WriteLine("Résultat de la stratégie locale :");
-        Console.WriteLine($"Action : {tradingDecision.Action}");
-        Console.WriteLine($"Stop Loss : {tradingDecision.StopLoss}");
-        Console.WriteLine($"Take Profit : {tradingDecision.TakeProfit}");
-        Console.WriteLine($"Confiance : {tradingDecision.Confidence}");
-
-        // Simulation avec l'analyse IA (si activée)
-        var useAIAnalysis = true; // Change ce paramètre selon les besoins
-        if (useAIAnalysis)
-        {
-            var aiResponse = await openAIService.AnalyzeMarketDataAsync(aggregatedDataJson);
-            Console.WriteLine("Analyse IA :");
-            Console.WriteLine(aiResponse);
-        }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Erreur lors de l'exécution du test : {ex.Message}");
+        Console.WriteLine("Erreur lors du test des ordres avancés.", ex);
     }
 }
 
-RunStrategyTest();
+TestAdvancedOrders();
+
 
 app.Run();
 

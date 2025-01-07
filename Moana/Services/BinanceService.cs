@@ -1,8 +1,12 @@
-﻿using Binance.Net.Clients;
+﻿using Binance.Net;
+using Binance.Net.Clients;
 using Binance.Net.Enums;
 using Binance.Net.Interfaces;
+using Binance.Net.Objects;
+using Binance.Net.Objects.Models.Futures;
 using Binance.Net.Objects.Models.Spot;
 using CryptoExchange.Net.Authentication;
+using CryptoExchange.Net.Objects;
 using CryptoExchange.Net.Objects.Sockets;
 using Microsoft.Extensions.Options;
 using Moana.Configurations;
@@ -22,7 +26,7 @@ namespace Moana.Services
         private readonly BinanceSocketClient _socketClient;
 
 
-        public BinanceService(HttpClient httpClient ,IOptions<BinanceOptions> options)
+        public BinanceService(HttpClient httpClient, IOptions<BinanceOptions> options)
         {
             var apiKey = options.Value.ApiKey;
             var apiSecret = options.Value.ApiSecret;
@@ -39,6 +43,7 @@ namespace Moana.Services
             {
                 options.ApiCredentials = credentials;
                 options.AutoTimestamp = true;
+                options.Environment = BinanceEnvironment.Testnet;
             });
 
             _socketClient = new BinanceSocketClient(options =>
@@ -285,30 +290,6 @@ namespace Moana.Services
             return result.Success && result.Data.Any() ? result.Data.First().FundingRate : 0m;
         }
 
-        // TODO : VERIFIER API
-        public async Task<decimal> GetLongShortRatioAsyncTEST(string symbol)
-        {
-            // Récupérer les informations de position
-            var result = await _binanceClient.UsdFuturesApi.Account.GetPositionInformationAsync(symbol);
-
-            if (result.Success && result.Data.Any())
-            {
-                Console.WriteLine($"Position Data: {JsonConvert.SerializeObject(result.Data, Formatting.Indented)}");
-
-                var longPositions = result.Data.Where(p => p.Quantity > 0).Sum(p => p.Quantity);
-                var shortPositions = result.Data.Where(p => p.Quantity < 0).Sum(p => Math.Abs(p.Quantity));
-
-                // Calculer le ratio long/court
-                return shortPositions > 0 ? longPositions / shortPositions : 1; // Ratio long/court
-            } 
-            else
-            {
-                Console.WriteLine($"Erreur : {result.Error?.Message}");
-            }
-
-            return 0m; // Aucun résultat ou erreur
-        }
-
         /// <summary>
         /// Récupère les données du ratio long/short depuis Binance.
         /// </summary>
@@ -353,7 +334,7 @@ namespace Moana.Services
         /// </summary>
         /// <param name="symbol">Paire de trading (ex: BTCUSDT)</param>
         /// <returns>Prix actuel</returns>
-        public async Task<decimal> GetPriceAsync(string symbol)
+        public async Task<WebCallResult<BinancePrice>> GetPriceAsync(string symbol)
         {
             var result = await _binanceClient.SpotApi.ExchangeData.GetPriceAsync(symbol);
             if (!result.Success)
@@ -361,19 +342,20 @@ namespace Moana.Services
                 throw new Exception($"Erreur lors de la récupération du prix : {result.Error?.Message}");
             }
 
-            return result.Data.Price;
+            return result;
         }
 
         /// <summary>
         /// Récupère les informations de compte, y compris les soldes disponibles.
         /// </summary>
         /// <returns>Solde disponible pour chaque actif</returns>
-        public async Task<BinanceAccountInfo> GetAccountInfoAsync()
+        public async Task<BinanceFuturesAccountInfoV3> GetAccountInfoAsync()
         {
-            var result = await _binanceClient.SpotApi.Account.GetAccountInfoAsync();
+            var result = await _binanceClient.UsdFuturesApi.Account.GetAccountInfoV3Async();
             if (!result.Success)
             {
-                throw new Exception($"Erreur lors de la récupération des informations de compte : {result.Error?.Message}");
+                Console.WriteLine($"Erreur lors de la récupération des informations de compte Futures : {result.Error?.Message}");
+                return null;
             }
 
             return result.Data;
@@ -381,30 +363,186 @@ namespace Moana.Services
         #endregion
 
         #region Actions
-        /// <summary>
-        /// Place un ordre de marché (achat ou vente).
-        /// </summary>
-        /// <param name="symbol">Paire de trading (ex: BTCUSDT)</param>
-        /// <param name="quantity">Quantité à trader</param>
-        /// <param name="isBuy">True pour un achat, False pour une vente</param>
-        /// <returns>Détails de l'ordre</returns>
-        public async Task<BinancePlacedOrder> PlaceMarketOrderAsync(string symbol, decimal quantity, bool isBuy)
+        public async Task<BinanceFuturesOrder> PlaceFuturesOrderAsync(string symbol, decimal quantity, bool isBuy, decimal? price = null)
         {
             var side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-            var result = await _binanceClient.SpotApi.Trading.PlaceOrderAsync(
+
+            // Type d'ordre : Market ou Limit
+            var orderType = price.HasValue ? FuturesOrderType.Limit : FuturesOrderType.Market;
+
+            var result = await _binanceClient.UsdFuturesApi.Trading.PlaceOrderAsync(
                 symbol,
                 side,
-                SpotOrderType.Market,
-                quantity);
+                orderType,
+                quantity,
+                price: price,
+                timeInForce: price.HasValue ? TimeInForce.GoodTillCanceled : null
+            );
 
             if (!result.Success)
             {
-                throw new Exception($"Erreur lors du placement de l'ordre : {result.Error?.Message}");
+                throw new Exception($"Erreur lors du placement de l'ordre Futures : {result.Error?.Message}");
             }
 
             return result.Data;
         }
+
+
+        public async Task<IEnumerable<BinanceFuturesOrder>> GetOpenFuturesOrdersAsync(string symbol)
+        {
+            var result = await _binanceClient.UsdFuturesApi.Trading.GetOpenOrdersAsync(symbol);
+
+            if (!result.Success)
+            {
+                throw new Exception($"Erreur lors de la récupération des ordres ouverts : {result.Error?.Message}");
+            }
+
+            return result.Data;
+        }
+
+        public async Task<BinanceFuturesOrder> PlaceAdvancedOrderAsync(
+            string symbol,
+            OrderSide side,
+            FuturesOrderType type,
+            decimal quantity,
+            decimal? price = null,
+            decimal? stopPrice = null,
+            decimal? activationPrice = null,
+            TimeInForce timeInForce = TimeInForce.GoodTillCanceled)
+        {
+            try
+            {
+                // Placement de l'ordre
+                var result = await _binanceClient.UsdFuturesApi.Trading.PlaceOrderAsync(
+                    symbol: symbol,
+                    side: side,
+                    type: type,
+                    quantity: quantity,
+                    price: price,
+                    stopPrice: stopPrice,
+                    activationPrice: activationPrice,
+                    timeInForce: type == FuturesOrderType.Market ? null : timeInForce);
+
+                // Log des résultats
+                if (result.Success)
+                {
+                    Console.WriteLine($"Ordre {type} placé avec succès : {JsonConvert.SerializeObject(result.Data, Formatting.Indented)}");
+                    return result.Data;
+                }
+                else
+                {
+                    Console.WriteLine($"Erreur lors du placement de l'ordre {type}. Message API : {result.Error?.Message}. Code API : {result.Error?.Code}. Détails : {JsonConvert.SerializeObject(result.Error)}");
+                    throw new Exception($"Erreur lors du placement de l'ordre {type} : {result.Error?.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Erreur lors de la tentative de placement d'un ordre avancé.", ex);
+                throw;
+            }
+        }
+
+
+
+
+        public async Task<IEnumerable<BinanceFuturesOrder>> GetOrderHistoryAsync(string symbol, int limit = 50)
+        {
+            var result = await _binanceClient.UsdFuturesApi.Trading.GetOrdersAsync(symbol: symbol, limit: limit);
+
+            if (!result.Success)
+            {
+                Console.WriteLine($"Erreur lors de la récupération des ordres : {result.Error?.Message}");
+                throw new Exception($"Erreur lors de la récupération des ordres : {result.Error?.Message}");
+            }
+
+            return result.Data;
+        }
+
+        public async Task<int> GetAssetPrecisionAsync(string symbol)
+        {
+            var exchangeInfo = await _binanceClient.UsdFuturesApi.ExchangeData.GetExchangeInfoAsync();
+            var symbolInfo = exchangeInfo.Data.Symbols.FirstOrDefault(s => s.Name == symbol);
+
+            if (symbolInfo == null)
+                throw new Exception($"Symbole {symbol} non trouvé dans l'info d'échange.");
+
+            return symbolInfo.QuantityPrecision; // Retourne la précision pour la quantité
+        }
+
+        public async Task<decimal> GetTickSizeAsync(string symbol)
+        {
+            var exchangeInfo = await _binanceClient.UsdFuturesApi.ExchangeData.GetExchangeInfoAsync();
+            var symbolInfo = exchangeInfo.Data.Symbols.FirstOrDefault(s => s.Name == symbol);
+            if (symbolInfo == null)
+            {
+                throw new Exception($"Le symbole {symbol} n'est pas pris en charge.");
+            }
+
+            return symbolInfo.Filters
+                .OfType<BinanceSymbolPriceFilter>()
+                .First().TickSize;
+        }
+
+
+        public async Task<decimal> GetMinQuantityAsync(string symbol)
+        {
+            var exchangeInfo = await _binanceClient.UsdFuturesApi.ExchangeData.GetExchangeInfoAsync();
+            var symbolInfo = exchangeInfo.Data.Symbols.FirstOrDefault(s => s.Name == symbol);
+
+            if (symbolInfo == null)
+                throw new Exception($"Impossible d'obtenir la quantité minimale pour {symbol}");
+
+            return symbolInfo.Filters.OfType<BinanceSymbolMarketLotSizeFilter>().FirstOrDefault()?.MinQuantity ?? 0;
+        }
+
+
+        public async Task<decimal> GetMinNotionalAsync(string symbol)
+        {
+            var exchangeInfo = await _binanceClient.UsdFuturesApi.ExchangeData.GetExchangeInfoAsync();
+            var symbolInfo = exchangeInfo.Data.Symbols.FirstOrDefault(s => s.Name == symbol);
+
+            if (symbolInfo == null)
+                throw new Exception($"Symbole {symbol} non trouvé dans l'info d'échange.");
+
+            return symbolInfo.Filters.OfType<BinanceSymbolMinNotionalFilter>().First().MinNotional;
+        }
+
+        public async Task SetLeverageAsync(string symbol, int leverage)
+        {
+            var result = await _binanceClient.UsdFuturesApi.Account.ChangeInitialLeverageAsync(symbol, leverage);
+
+            if (!result.Success)
+            {
+                throw new Exception($"Erreur lors de la configuration du levier : {result.Error?.Message}");
+            }
+
+            Console.WriteLine($"Levier défini sur {leverage}x pour le symbole {symbol}.");
+        }
+
+        public async Task SetMarginModeAsync(string symbol, FuturesMarginType marginType)
+        {
+            var result = await _binanceClient.UsdFuturesApi.Account.ChangeMarginTypeAsync(symbol, marginType);
+
+            if (!result.Success)
+            {
+                throw new Exception($"Erreur lors de la configuration du mode de marge : {result.Error?.Message}");
+            }
+
+            Console.WriteLine($"Mode de marge défini sur {marginType} pour le symbole {symbol}.");
+        }
+
         #endregion
+
+        public async Task LogOrderDetails(BinanceFuturesOrder order)
+        {
+            Console.WriteLine($"Détails de l'ordre :");
+            Console.WriteLine($"- ID de l'ordre : {order.Id}");
+            Console.WriteLine($"- Symbole : {order.Symbol}");
+            Console.WriteLine($"- Quantité : {order.Quantity}");
+            Console.WriteLine($"- Statut : {order.Status}");
+            Console.WriteLine($"- Prix exécuté : {order.AveragePrice}");
+        }
+
 
         /// <summary>
         /// Écoute les mises à jour de prix via WebSocket.

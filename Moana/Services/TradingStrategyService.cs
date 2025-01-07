@@ -234,7 +234,5 @@ namespace Moana.Services
             // Exemple : on ajuste le seuil MACD en fonction de la volatilité
             return Math.Min(volatility * 0.1m, 0.5m); // Ajustement limité à 0.5
         }
-
-
     }
 }
