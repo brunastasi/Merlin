@@ -88,11 +88,6 @@ namespace Moana.Services
                     takeProfit = AdjustPriceToTickSize(takeProfit.Value, tickSize);
                 }
 
-                // Logs des ajustements
-                _logger.LogInformation($"Prix actuel : {currentPrice}");
-                _logger.LogInformation($"StopLoss ajusté : {stopLoss}");
-                _logger.LogInformation($"TakeProfit ajusté : {takeProfit}");
-
                 // Validation renforcée des niveaux
                 ValidateOrderLevels(currentPrice, stopLoss, takeProfit, side, tickSize);
 
@@ -148,6 +143,11 @@ namespace Moana.Services
                     );
                     _logger.LogInformation($"Ordre Take-Profit placé pour {symbol} à {takeProfit} : {takeProfitOrder.Id}");
                 }
+
+                // Logs des ajustements
+                _logger.LogInformation($"Prix actuel : {currentPrice}");
+                _logger.LogInformation($"StopLoss ajusté : {stopLoss}");
+                _logger.LogInformation($"TakeProfit ajusté : {takeProfit}");
             }
             catch (Exception ex)
             {

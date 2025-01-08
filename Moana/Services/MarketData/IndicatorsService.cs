@@ -139,15 +139,24 @@ namespace Moana.Services.MarketData
 
         private (decimal PercentK, decimal PercentD) CalculateStochasticOscillator(decimal[] highs, decimal[] lows, decimal[] closes, int period)
         {
-            if (highs.Length < period || lows.Length < period || closes.Length < period) return (0, 0);
+            if (highs.Length < period || lows.Length < period || closes.Length < period)
+                return (0, 0);
 
             var highestHigh = highs.TakeLast(period).Max();
             var lowestLow = lows.TakeLast(period).Min();
+
+            if (highestHigh == lowestLow)
+            {
+                // Si le plus haut et le plus bas sont identiques, on retourne 0 pour éviter une division par zéro.
+                return (0, 0);
+            }
+
             var percentK = ((closes.Last() - lowestLow) / (highestHigh - lowestLow)) * 100;
             var percentD = IndicatorCalculations.CalculateSMA(closes.TakeLast(3).ToArray(), 3);
 
             return (percentK, percentD);
         }
+
 
         private decimal[] CalculateParabolicSAR(decimal[] highs, decimal[] lows, decimal initialAf = 0.02m, decimal maxAf = 0.2m)
         {
@@ -245,6 +254,12 @@ namespace Moana.Services.MarketData
 
             for (int i = highs.Length - period; i < highs.Length; i++)
             {
+                // Vérification pour éviter la division par zéro
+                if (highs[i] == lows[i])
+                {
+                    continue; // Ignorer ce point, car le dénominateur serait 0
+                }
+
                 var moneyFlowMultiplier = ((closes[i] - lows[i]) - (highs[i] - closes[i])) / (highs[i] - lows[i]);
                 moneyFlowVolume += moneyFlowMultiplier * volumes[i];
                 totalVolume += volumes[i];
@@ -254,6 +269,7 @@ namespace Moana.Services.MarketData
 
             return moneyFlowVolume / totalVolume;
         }
+
 
         private decimal CalculateRVI(decimal[] opens, decimal[] closes, decimal[] highs, decimal[] lows, int period)
         {
@@ -276,26 +292,50 @@ namespace Moana.Services.MarketData
 
         private decimal CalculateWilliamsR(decimal[] highs, decimal[] lows, decimal[] closes, int period)
         {
+            // Vérifier que les tableaux ont au moins 'period' éléments
             if (highs.Length < period || lows.Length < period || closes.Length < period)
                 return 0;
 
+            // Calculer les valeurs nécessaires
             var highestHigh = highs.TakeLast(period).Max();
             var lowestLow = lows.TakeLast(period).Min();
             var lastClose = closes.Last();
 
+            // Vérifier pour éviter une division par zéro
+            if (highestHigh == lowestLow)
+            {
+                Console.WriteLine("Williams %R: highestHigh et lowestLow sont égaux, division par zéro évitée.");
+                return 0; // Retourner une valeur neutre
+            }
+
+            // Calculer et retourner Williams %R
             return ((highestHigh - lastClose) / (highestHigh - lowestLow)) * -100;
         }
 
+
         private decimal CalculateADL(decimal[] highs, decimal[] lows, decimal[] closes, decimal[] volumes)
         {
+            // Vérification des longueurs des tableaux
             if (highs.Length != volumes.Length || lows.Length != volumes.Length || closes.Length != volumes.Length)
+            {
+                Console.WriteLine("Les tableaux d'entrées pour ADL ont des longueurs différentes.");
                 return 0;
+            }
 
             decimal adl = 0;
 
             for (int i = 0; i < highs.Length; i++)
             {
-                var moneyFlowMultiplier = ((closes[i] - lows[i]) - (highs[i] - closes[i])) / (highs[i] - lows[i]);
+                var range = highs[i] - lows[i];
+
+                // Vérification pour éviter une division par zéro
+                if (range == 0)
+                {
+                    Console.WriteLine($"Division par zéro évitée à l'index {i} : highs[{i}] = {highs[i]}, lows[{i}] = {lows[i]}");
+                    continue; // Passer à l'itération suivante
+                }
+
+                var moneyFlowMultiplier = ((closes[i] - lows[i]) - (highs[i] - closes[i])) / range;
                 var moneyFlowVolume = moneyFlowMultiplier * volumes[i];
                 adl += moneyFlowVolume;
             }
@@ -303,35 +343,56 @@ namespace Moana.Services.MarketData
             return adl;
         }
 
+
         private decimal CalculateCMO(decimal[] closes, int period)
         {
-            if (closes.Length < period + 1) return 0;
+            if (closes.Length < period + 1)
+            {
+                Console.WriteLine($"Taille insuffisante pour calculer le CMO. Longueur des fermetures : {closes.Length}, Période : {period}");
+                return 0;
+            }
 
             decimal gains = 0, losses = 0;
 
             for (int i = 1; i <= period; i++)
             {
                 var change = closes[i] - closes[i - 1];
-                if (change > 0) gains += change;
-                else losses -= change;
+                if (change > 0)
+                    gains += change;
+                else
+                    losses -= change;
+            }
+
+            if (gains + losses == 0)
+            {
+                Console.WriteLine("Division par zéro évitée lors du calcul du CMO : (gains + losses) == 0");
+                return 0;
             }
 
             return (gains - losses) / (gains + losses) * 100;
         }
 
+
         private decimal CalculateOBV(decimal[] closes, decimal[] volumes)
         {
-            if (closes.Length != volumes.Length) return 0;
+            if (closes.Length != volumes.Length)
+            {
+                Console.WriteLine($"Les longueurs des tableaux 'closes' ({closes.Length}) et 'volumes' ({volumes.Length}) ne correspondent pas.");
+                return 0;
+            }
 
             decimal obv = 0;
 
             for (int i = 1; i < closes.Length; i++)
             {
-                if (closes[i] > closes[i - 1]) obv += volumes[i];
-                else if (closes[i] < closes[i - 1]) obv -= volumes[i];
+                if (closes[i] > closes[i - 1])
+                    obv += Math.Max(volumes[i], 0); // Utilisation de Math.Max pour éviter les volumes négatifs
+                else if (closes[i] < closes[i - 1])
+                    obv -= Math.Max(volumes[i], 0);
             }
 
             return obv;
         }
+
     }
 }

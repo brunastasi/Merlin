@@ -5,6 +5,7 @@ using Moana.Models.MarketData;
 using Moana.Services;
 using Moana.Services.MarketData;
 using System.Net.Http;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -277,40 +278,62 @@ var tradingDecision = new TradingDecision();
 //    Console.WriteLine($"Erreur lors de la récupération du prix : {ex.Message}");
 //}
 
-async Task TestAdvancedOrders()
+
+async Task ExecuteAnalyzeAndTradeAsync(
+    string symbol,
+    List<(string Asset, string Type)> assets,
+    UserPreferences userPreferences,
+    bool useAIAnalysis = false)
 {
     try
     {
-        var price = await tradingExecutionService.GetCurrentPrice("BTCUSDT");
-        Console.WriteLine($"Prix actuel de BTCUSDT : {price}");
+        // Vérification des préférences utilisateur
+        if (userPreferences == null)
+            throw new ArgumentNullException(nameof(userPreferences), "Les préférences utilisateur ne peuvent pas être nulles.");
 
-        var balance = await tradingExecutionService.GetAvailableBalance("BTCUSDT");
-        Console.WriteLine($"Solde disponible pour BTC : {balance}");
+        if (userPreferences.Budget <= 0)
+            throw new ArgumentException("Le budget doit être supérieur à zéro.", nameof(userPreferences.Budget));
 
-        var decision = new TradingDecision
+        // Étape 1 : Analyse des données du marché
+        Console.WriteLine("Début de l'analyse du marché pour {symbol}.");
+        string analysisResult = await tradingStrategyService.AnalyzeAndExecuteStrategyAsync(symbol, assets, userPreferences, useAIAnalysis);
+         
+        // Étape 2 : Conversion des résultats en TradingDecision
+        Console.WriteLine("Analyse terminée. Résultats : {analysisResult}");
+        var decision = JsonSerializer.Deserialize<TradingDecision>(analysisResult);
+
+        if (decision == null || string.IsNullOrWhiteSpace(decision.Action))
         {
-            Action = "BUY",
-            StopLoss = Math.Floor(price * 0.95m), // Arrondi à l'entier inférieur
-            TakeProfit = Math.Floor(price * 1.20m), // Arrondi à l'entier inférieur
-            Confidence = "Medium"
-        };
+            Console.WriteLine("Aucune décision valide obtenue pour {symbol}. Analyse ignorée.");
+            return;
+        }
 
-        await tradingExecutionService.ExecuteTradingDecisionAsync(decision, "BTCUSDT", 1000m);
-
-        Console.WriteLine($"Action : {decision.Action}");
-        Console.WriteLine($"Stop Loss : {decision.StopLoss}");
-        Console.WriteLine($"Take Profit : {decision.TakeProfit}");
-        Console.WriteLine($"Confiance : {decision.Confidence}");
-
-
+        // Étape 3 : Exécution de la décision de trading
+        Console.WriteLine("Exécution de la décision de trading : {decision.Action} pour {symbol}");
+        await tradingExecutionService.ExecuteTradingDecisionAsync(decision, symbol, userPreferences.Budget);
     }
     catch (Exception ex)
     {
-        Console.WriteLine("Erreur lors du test des ordres avancés.", ex);
+        Console.WriteLine("Erreur lors de l'exécution de l'analyse et du trading pour {symbol}.", ex);
+        throw;
     }
 }
 
-TestAdvancedOrders();
+
+await ExecuteAnalyzeAndTradeAsync(
+    symbol: "BTCUSDT",
+    assets: new List<(string, string)> { ("BTC", "Crypto") },
+    userPreferences: new UserPreferences
+    {
+        Budget = 1000, // Défini ici
+        RiskManagement = new RiskManagement
+        {
+            StopLoss = 5, // StopLoss en pourcentage
+            TakeProfit = 10 // TakeProfit en pourcentage
+        }
+    },
+    useAIAnalysis: false);
+
 
 
 app.Run();

@@ -153,7 +153,7 @@ namespace Moana.Services
         public async Task<(decimal TotalVolume, decimal BuySellRatio, decimal VolumeChange)> GetVolumeAsync(string symbol)
         {
             // Appel à l'API Binance pour récupérer les statistiques de 24 heures
-            var result = await _binanceClient.SpotApi.ExchangeData.GetTickerAsync(symbol);
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetTickerAsync(symbol);
 
             if (!result.Success || result.Data == null)
             {
@@ -172,7 +172,7 @@ namespace Moana.Services
 
         public async Task<decimal[]> GetVolumesAsync(string symbol, KlineInterval interval)
         {
-            var result = await _binanceClient.SpotApi.ExchangeData.GetKlinesAsync(symbol, interval);
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetKlinesAsync(symbol, interval);
 
             if (!result.Success || result.Data == null)
             {
@@ -207,7 +207,7 @@ namespace Moana.Services
 
         public async Task<decimal[]> GetHistoricalPricesAsync(string symbol, KlineInterval interval)
         {
-            var result = await _binanceClient.SpotApi.ExchangeData.GetKlinesAsync(symbol, interval);
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetKlinesAsync(symbol, interval);
 
             if (!result.Success || result.Data == null)
             {
@@ -220,7 +220,7 @@ namespace Moana.Services
 
         public async Task<decimal[]> GetHighPricesAsync(string symbol, KlineInterval interval)
         {
-            var result = await _binanceClient.SpotApi.ExchangeData.GetKlinesAsync(symbol, interval);
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetKlinesAsync(symbol, interval);
 
             if (!result.Success || result.Data == null)
             {
@@ -232,7 +232,7 @@ namespace Moana.Services
 
         public async Task<decimal[]> GetLowPricesAsync(string symbol, KlineInterval interval)
         {
-            var result = await _binanceClient.SpotApi.ExchangeData.GetKlinesAsync(symbol, interval);
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetKlinesAsync(symbol, interval);
 
             if (!result.Success || result.Data == null)
             {
@@ -244,7 +244,7 @@ namespace Moana.Services
 
         public async Task<decimal[]> GetOpenPricesAsync(string symbol, KlineInterval interval)
         {
-            var result = await _binanceClient.SpotApi.ExchangeData.GetKlinesAsync(symbol, interval);
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetKlinesAsync(symbol, interval);
 
             if (!result.Success || result.Data == null)
             {
@@ -256,7 +256,7 @@ namespace Moana.Services
 
         public async Task<decimal[]> GetClosePricesAsync(string symbol, KlineInterval interval)
         {
-            var result = await _binanceClient.SpotApi.ExchangeData.GetKlinesAsync(symbol, interval);
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetKlinesAsync(symbol, interval);
 
             if (!result.Success || result.Data == null)
             {
@@ -268,7 +268,7 @@ namespace Moana.Services
 
         public async Task<BinanceOrderBook> GetOrderBookAsync(string symbol, int limit)
         {
-            var result = await _binanceClient.SpotApi.ExchangeData.GetOrderBookAsync(symbol, limit);
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetOrderBookAsync(symbol, limit);
 
             if (!result.Success || result.Data == null)
             {
@@ -336,7 +336,7 @@ namespace Moana.Services
         /// <returns>Prix actuel</returns>
         public async Task<WebCallResult<BinancePrice>> GetPriceAsync(string symbol)
         {
-            var result = await _binanceClient.SpotApi.ExchangeData.GetPriceAsync(symbol);
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetPriceAsync(symbol);
             if (!result.Success)
             {
                 throw new Exception($"Erreur lors de la récupération du prix : {result.Error?.Message}");

@@ -52,7 +52,7 @@ namespace Moana.Services.MarketData
         private bool IsCryptoSymbol(string symbol)
         {
             // Exemple : les paires crypto se terminent souvent par "USDT", "BTC", etc.
-            return symbol.EndsWith("USDT") || symbol.EndsWith("BTC");
+            return symbol.EndsWith("USDT") || symbol.EndsWith("BTC") || symbol.EndsWith("USDC");
         }
     }
 }
