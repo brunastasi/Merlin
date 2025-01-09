@@ -55,7 +55,7 @@ namespace Moana.Services
                 model = "gpt-4",
                 messages = new[]
                 {
-                    new { role = "system", content = "You are a trading assistant. Analyze the following market data and provide a trading strategy strictly in JSON format. Use the following structure: { \\\"Action\\\": \\\"BUY/SELL/HOLD\\\", \\\"StopLoss\\\": decimal, \\\"TakeProfit\\\": decimal, \\\"Confidence\\\": \\\"High/Medium/Low\\\"" },
+                    new { role = "system", content = "You are a trading assistant specializing in scalping strategies. Analyze the provided market data and generate a scalping strategy strictly in JSON format. The JSON output must follow this structure: { \"Action\": \"BUY/SELL/HOLD\", \"SL\": decimal, \"TP\": decimal, \"Confidence\": \"High/Medium/Low\" }. Do not include any explanatory text or additional comments, only return the JSON object." },
                     new { role = "user", content = marketDataJson }
                 },
                 max_tokens = 400 // Propriété correcte pour limiter le nombre de tokens dans la réponse

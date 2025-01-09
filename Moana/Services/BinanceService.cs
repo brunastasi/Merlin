@@ -387,6 +387,49 @@ namespace Moana.Services
             return result.Data;
         }
 
+        public async Task<List<BinanceUsdFuturesOrder>> GetActiveOrdersAsync(string symbol)
+        {
+            try
+            {
+                var result = await _binanceClient.UsdFuturesApi.Trading.GetOpenOrdersAsync(symbol);
+
+                if (!result.Success)
+                {
+                    throw new Exception($"Erreur lors de la récupération des ordres actifs pour {symbol} : {result.Error?.Message}");
+                }
+
+                Console.WriteLine($"Récupération des ordres actifs pour {symbol} réussie. Nombre d'ordres actifs : {result.Data.Count()}.");
+                return result.Data.ToList();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erreur lors de la tentative de récupération des ordres actifs pour {symbol}.", ex);
+                throw;
+            }
+        }
+
+        public async Task CancelOrderAsync(string symbol, long orderId)
+        {
+            try
+            {
+                var result = await _binanceClient.UsdFuturesApi.Trading.CancelOrderAsync(symbol, orderId);
+
+                if (!result.Success)
+                {
+                    throw new Exception($"Erreur lors de l'annulation de l'ordre {orderId} pour {symbol} : {result.Error?.Message}");
+                }
+
+                Console.WriteLine($"Annulation de l'ordre réussie : ID = {orderId}, Symbole = {symbol}.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erreur lors de la tentative d'annulation de l'ordre {orderId} pour {symbol}.", ex);
+                throw;
+            }
+        }
+
+
+
 
         public async Task<IEnumerable<BinanceFuturesOrder>> GetOpenFuturesOrdersAsync(string symbol)
         {
@@ -404,15 +447,31 @@ namespace Moana.Services
             string symbol,
             OrderSide side,
             FuturesOrderType type,
-            decimal quantity,
+            decimal? quantity = null,
             decimal? price = null,
             decimal? stopPrice = null,
             decimal? activationPrice = null,
-            TimeInForce timeInForce = TimeInForce.GoodTillCanceled)
+            TimeInForce timeInForce = TimeInForce.GoodTillCanceled,
+            bool? reduceOnly = null,
+            PositionSide? positionSide = null)
         {
             try
             {
-                // Placement de l'ordre
+                // Vérifier les paramètres selon le type d'ordre
+                if ((type == FuturesOrderType.StopMarket || type == FuturesOrderType.TakeProfitMarket) && stopPrice == null)
+                {
+                    throw new ArgumentException("Le stopPrice doit être défini pour les ordres StopMarket ou TakeProfitMarket.");
+                }
+
+                if ((type == FuturesOrderType.TakeProfit || type == FuturesOrderType.Stop) && price == null)
+                {
+                    throw new ArgumentException("Le price doit être défini pour les ordres TakeProfit ou Stop.");
+                }
+
+                // Déterminer si reduceOnly doit être envoyé
+                bool sendReduceOnly = reduceOnly.HasValue && reduceOnly == true;
+
+                // Placer l'ordre via l'API Binance
                 var result = await _binanceClient.UsdFuturesApi.Trading.PlaceOrderAsync(
                     symbol: symbol,
                     side: side,
@@ -421,7 +480,11 @@ namespace Moana.Services
                     price: price,
                     stopPrice: stopPrice,
                     activationPrice: activationPrice,
-                    timeInForce: type == FuturesOrderType.Market ? null : timeInForce);
+                    timeInForce: type == FuturesOrderType.Market ? null : timeInForce,
+                    reduceOnly: sendReduceOnly ? reduceOnly : null,
+                    closePosition: (type == FuturesOrderType.StopMarket || type == FuturesOrderType.TakeProfitMarket) ? true : null,
+                    positionSide: positionSide // Ajout pour définir une position spécifique en Hedge Mode
+                );
 
                 // Log des résultats
                 if (result.Success)
@@ -441,6 +504,22 @@ namespace Moana.Services
                 throw;
             }
         }
+
+
+        public async Task<(decimal MinPrice, decimal MaxPrice)> GetPriceLimitsAsync(string symbol)
+        {
+            var result = await _binanceClient.UsdFuturesApi.ExchangeData.GetExchangeInfoAsync();
+            if (!result.Success)
+                throw new Exception($"Erreur lors de la récupération des informations de l'échange : {result.Error?.Message}");
+
+            var symbolInfo = result.Data.Symbols.FirstOrDefault(s => s.Name == symbol);
+            if (symbolInfo == null)
+                throw new Exception($"Aucune information trouvée pour le symbole {symbol}.");
+
+            return (symbolInfo.Filters.OfType<BinanceSymbolPriceFilter>().First().MinPrice,
+                    symbolInfo.Filters.OfType<BinanceSymbolPriceFilter>().First().MaxPrice);
+        }
+
 
 
 

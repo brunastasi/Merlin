@@ -1,4 +1,6 @@
 ﻿using Binance.Net.Enums;
+using Binance.Net.Objects.Models.Futures;
+using CryptoExchange.Net.SharedApis;
 using Moana.Models;
 using System.Drawing;
 
@@ -32,11 +34,11 @@ namespace Moana.Services
                 switch (decision.Action.ToUpper())
                 {
                     case "BUY":
-                        await PlaceOrderWithStopLossAndTakeProfit(symbol, budget, decision.StopLoss, decision.TakeProfit, currentPrice, OrderSide.Buy);
+                        await PlaceOrderWithStopLossAndTakeProfit(symbol, budget, decision.SL, decision.TP, currentPrice, OrderSide.Buy);
                         break;
 
                     case "SELL":
-                        await PlaceOrderWithStopLossAndTakeProfit(symbol, budget, decision.StopLoss, decision.TakeProfit, currentPrice, OrderSide.Sell);
+                        await PlaceOrderWithStopLossAndTakeProfit(symbol, budget, decision.SL, decision.TP, currentPrice, OrderSide.Sell);
                         break;
 
                     case "HOLD":
@@ -58,19 +60,19 @@ namespace Moana.Services
         private async Task PlaceOrderWithStopLossAndTakeProfit(
             string symbol,
             decimal budget,
-            decimal? stopLoss,
-            decimal? takeProfit,
+            decimal? initialStopLoss,
+            decimal? initialTakeProfit,
             decimal currentPrice,
             OrderSide side)
         {
             try
             {
-                // Obtenir le TickSize pour ajuster les prix
+                // Obtenir le TickSize et la StepSize pour ajuster les prix et quantités
                 decimal tickSize = await _binanceService.GetTickSizeAsync(symbol);
-
-                // Ajustement des quantités
                 int quantityPrecision = await _binanceService.GetAssetPrecisionAsync(symbol);
-                var quantity = budget / currentPrice;
+
+                // Calculer la quantité
+                decimal quantity = budget / currentPrice;
                 quantity = AdjustToPrecision(quantity, quantityPrecision);
 
                 if (quantity <= 0)
@@ -78,37 +80,39 @@ namespace Moana.Services
                     throw new Exception($"Quantité trop petite après ajustement : {quantity}");
                 }
 
-                // Ajustement des niveaux pour le TickSize
-                if (stopLoss.HasValue)
-                {
-                    stopLoss = AdjustPriceToTickSize(stopLoss.Value, tickSize);
-                }
-                if (takeProfit.HasValue)
-                {
-                    takeProfit = AdjustPriceToTickSize(takeProfit.Value, tickSize);
-                }
+                // Ajuster les prix initialement
+                decimal slPercentage = initialStopLoss.HasValue ? Math.Abs((currentPrice - initialStopLoss.Value) / currentPrice) : 0.05m; // Par défaut 5%
+                decimal tpPercentage = initialTakeProfit.HasValue ? Math.Abs((initialTakeProfit.Value - currentPrice) / currentPrice) : 0.20m; // Par défaut 20%
 
-                // Validation renforcée des niveaux
-                ValidateOrderLevels(currentPrice, stopLoss, takeProfit, side, tickSize);
+                decimal? stopLoss = initialStopLoss.HasValue ? AdjustPriceToTickSize(initialStopLoss.Value, tickSize) : null;
+                decimal? takeProfit = initialTakeProfit.HasValue ? AdjustPriceToTickSize(initialTakeProfit.Value, tickSize) : null;
 
-                // Vérification du montant minimal requis
+                // Validation initiale des niveaux
+                ValidateAndAdjustOrderLevels(ref stopLoss, ref takeProfit, currentPrice, side, tickSize);
+
+                // Vérifier si l'ordre respecte le montant minimal requis
                 decimal minNotional = await _binanceService.GetMinNotionalAsync(symbol);
                 if (quantity * currentPrice < minNotional)
                 {
                     throw new Exception($"La valeur totale de l'ordre ({quantity * currentPrice}) est inférieure au montant minimal requis ({minNotional}) pour {symbol}.");
                 }
 
-                // Vérification du prix actuel et réajustement si nécessaire
+                // Vérifier si le prix actuel change et ajuster le SL/TP dynamiquement
                 decimal updatedPrice = await GetCurrentMarketPriceAsync(symbol);
                 if (Math.Abs(updatedPrice - currentPrice) > tickSize * 5)
                 {
                     _logger.LogWarning($"Prix du marché modifié : ancien = {currentPrice}, nouveau = {updatedPrice}");
+
+                    // Réajuster le SL et le TP
                     currentPrice = updatedPrice;
-                    stopLoss = AdjustPriceToTickSize(currentPrice * 0.95m, tickSize);
-                    takeProfit = AdjustPriceToTickSize(currentPrice * 1.20m, tickSize);
+                    stopLoss = AdjustPriceToTickSize(currentPrice * (1 - slPercentage), tickSize);
+                    takeProfit = AdjustPriceToTickSize(currentPrice * (1 + tpPercentage), tickSize);
+
+                    // Validation après ajustement
+                    ValidateAndAdjustOrderLevels(ref stopLoss, ref takeProfit, currentPrice, side, tickSize);
                 }
 
-                // Placer l'ordre principal
+                // Placer l'ordre principal (Market Order)
                 var mainOrder = await _binanceService.PlaceAdvancedOrderAsync(
                     symbol: symbol,
                     side: side,
@@ -117,42 +121,132 @@ namespace Moana.Services
                 );
                 _logger.LogInformation($"Ordre principal {side} placé avec succès : {mainOrder.Id}");
 
-                // Placer Stop-Loss si défini
+                // Placer Stop-Loss
+                BinanceFuturesOrder stopOrder = null;
                 if (stopLoss.HasValue)
                 {
-                    var stopOrder = await _binanceService.PlaceAdvancedOrderAsync(
+                    stopOrder = await _binanceService.PlaceAdvancedOrderAsync(
                         symbol: symbol,
                         side: side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy,
                         type: FuturesOrderType.StopMarket,
-                        quantity: quantity,
+                        quantity: quantity, // Utilisation de closePosition pour réduire la position
                         stopPrice: stopLoss
                     );
                     _logger.LogInformation($"Ordre Stop-Loss placé pour {symbol} à {stopLoss} : {stopOrder.Id}");
                 }
 
-                // Placer Take-Profit si défini
+                // Placer Take-Profit
+                BinanceFuturesOrder takeProfitOrder = null;
                 if (takeProfit.HasValue)
                 {
-                    var takeProfitOrder = await _binanceService.PlaceAdvancedOrderAsync(
+                    // Récupérer les limites de prix
+                    var (minPrice, maxPrice) = await _binanceService.GetPriceLimitsAsync(symbol);
+
+                    // Valider le `takeProfit`
+                    if (takeProfit < minPrice || takeProfit > maxPrice)
+                    {
+                        throw new Exception($"Le TakeProfit ({takeProfit}) est hors des limites autorisées ({minPrice} - {maxPrice}).");
+                    }
+
+                    takeProfitOrder = await _binanceService.PlaceAdvancedOrderAsync(
                         symbol: symbol,
                         side: side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy,
-                        type: FuturesOrderType.TakeProfit,
+                        type: FuturesOrderType.TakeProfitMarket,
                         quantity: quantity,
-                        price: takeProfit, // Ajouter le paramètre 'price' ici
-                        stopPrice: takeProfit
+                        stopPrice: takeProfit,
+                        reduceOnly: false, // Associer au TakeProfit
+                        positionSide: PositionSide.Both // Assurez-vous que le PositionSide est cohérent avec votre position
                     );
+
                     _logger.LogInformation($"Ordre Take-Profit placé pour {symbol} à {takeProfit} : {takeProfitOrder.Id}");
                 }
 
-                // Logs des ajustements
+                // Surveiller l'exécution des ordres et annuler l'autre si l'un est exécuté
+                //if (stopOrder != null && takeProfitOrder != null)
+                //{
+                //    await MonitorAndCancelOppositeOrderAsync(symbol, stopOrder.Id, takeProfitOrder.Id);
+                //}
+
+                // Logs finaux
                 _logger.LogInformation($"Prix actuel : {currentPrice}");
-                _logger.LogInformation($"StopLoss ajusté : {stopLoss}");
-                _logger.LogInformation($"TakeProfit ajusté : {takeProfit}");
+                _logger.LogInformation($"StopLoss final ajusté : {stopLoss}");
+                _logger.LogInformation($"TakeProfit final ajusté : {takeProfit}");
+                _logger.LogInformation($"Quantité pour l'ordre Take-Profit : {quantity}");
+
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Erreur lors du placement des ordres pour {symbol}.");
                 throw;
+            }
+        }
+
+        private async Task MonitorAndCancelOppositeOrderAsync(string symbol, long? stopOrderId, long? takeProfitOrderId)
+        {
+            while (true)
+            {
+                var activeOrders = await _binanceService.GetActiveOrdersAsync(symbol);
+
+                if (stopOrderId.HasValue && !activeOrders.Any(o => o.Id == stopOrderId.Value))
+                {
+                    _logger.LogInformation($"Ordre Stop-Loss {stopOrderId} exécuté. Annulation de l'ordre Take-Profit.");
+                    if (takeProfitOrderId.HasValue)
+                        await _binanceService.CancelOrderAsync(symbol, takeProfitOrderId.Value);
+                    break;
+                }
+
+                if (takeProfitOrderId.HasValue && !activeOrders.Any(o => o.Id == takeProfitOrderId.Value))
+                {
+                    _logger.LogInformation($"Ordre Take-Profit {takeProfitOrderId} exécuté. Annulation de l'ordre Stop-Loss.");
+                    if (stopOrderId.HasValue)
+                        await _binanceService.CancelOrderAsync(symbol, stopOrderId.Value);
+                    break;
+                }
+
+                await Task.Delay(1000); // Vérification toutes les secondes
+            }
+        }
+
+
+
+        private void ValidateAndAdjustOrderLevels(
+        ref decimal? stopLoss,
+        ref decimal? takeProfit,
+        decimal currentPrice,
+        OrderSide side,
+        decimal tickSize)
+        {
+            if (side == OrderSide.Buy)
+            {
+                // Ajustement automatique du StopLoss pour un ordre BUY
+                if (stopLoss.HasValue && stopLoss >= currentPrice - tickSize * 2)
+                {
+                    stopLoss = stopLoss - tickSize * 2;
+                    Console.WriteLine($"StopLoss ajusté automatiquement à {stopLoss} pour un ordre BUY.");
+                }
+
+                // Ajustement automatique du TakeProfit pour un ordre BUY
+                if (takeProfit.HasValue && takeProfit <= currentPrice + tickSize * 2)
+                {
+                    takeProfit = takeProfit + tickSize * 2;
+                    Console.WriteLine($"TakeProfit ajusté automatiquement à {takeProfit} pour un ordre BUY.");
+                }
+            }
+            else if (side == OrderSide.Sell)
+            {
+                // Ajustement automatique du StopLoss pour un ordre SELL
+                if (stopLoss.HasValue && stopLoss <= currentPrice + tickSize * 2)
+                {
+                    stopLoss = stopLoss + tickSize * 2;
+                    Console.WriteLine($"StopLoss ajusté automatiquement à {stopLoss} pour un ordre SELL.");
+                }
+
+                // Ajustement automatique du TakeProfit pour un ordre SELL
+                if (takeProfit.HasValue && takeProfit >= currentPrice - tickSize * 2)
+                {
+                    takeProfit = takeProfit - tickSize * 2;
+                    Console.WriteLine($"TakeProfit ajusté automatiquement à {takeProfit} pour un ordre SELL.");
+                }
             }
         }
 
@@ -188,6 +282,7 @@ namespace Moana.Services
                 }
             }
         }
+
 
         private async Task<decimal> GetCurrentMarketPriceAsync(string symbol)
         {

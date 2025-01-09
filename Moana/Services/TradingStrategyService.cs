@@ -46,8 +46,8 @@ namespace Moana.Services
                 {
                     Symbol = symbol,
                     Action = localStrategy.Action,
-                    StopLoss = localStrategy.StopLoss,
-                    TakeProfit = localStrategy.TakeProfit,
+                    StopLoss = localStrategy.SL,
+                    TakeProfit = localStrategy.TP,
                     Confidence = localStrategy.Confidence
                 };
 
@@ -143,8 +143,8 @@ namespace Moana.Services
                     return new TradingDecision
                     {
                         Action = "BUY",
-                        StopLoss = stopLoss,
-                        TakeProfit = takeProfit,
+                        SL = stopLoss,
+                        TP = takeProfit,
                         Confidence = "High"
                     };
                 }
@@ -155,8 +155,8 @@ namespace Moana.Services
                     return new TradingDecision
                     {
                         Action = "SELL",
-                        StopLoss = stopLoss,
-                        TakeProfit = takeProfit,
+                        SL = stopLoss,
+                        TP = takeProfit,
                         Confidence = "High"
                     };
                 }
@@ -165,8 +165,8 @@ namespace Moana.Services
                 return new TradingDecision
                 {
                     Action = "HOLD",
-                    StopLoss = 0,
-                    TakeProfit = 0,
+                    SL = 0,
+                    TP = 0,
                     Confidence = "Medium"
                 };
             }

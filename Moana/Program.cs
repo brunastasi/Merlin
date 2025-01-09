@@ -295,26 +295,34 @@ async Task ExecuteAnalyzeAndTradeAsync(
             throw new ArgumentException("Le budget doit être supérieur à zéro.", nameof(userPreferences.Budget));
 
         // Étape 1 : Analyse des données du marché
-        Console.WriteLine("Début de l'analyse du marché pour {symbol}.");
+        Console.WriteLine($"Début de l'analyse du marché pour {symbol}.");
         string analysisResult = await tradingStrategyService.AnalyzeAndExecuteStrategyAsync(symbol, assets, userPreferences, useAIAnalysis);
          
         // Étape 2 : Conversion des résultats en TradingDecision
-        Console.WriteLine("Analyse terminée. Résultats : {analysisResult}");
+        Console.WriteLine($"Analyse terminée. Résultats : {analysisResult}");
         var decision = JsonSerializer.Deserialize<TradingDecision>(analysisResult);
 
         if (decision == null || string.IsNullOrWhiteSpace(decision.Action))
         {
-            Console.WriteLine("Aucune décision valide obtenue pour {symbol}. Analyse ignorée.");
+            Console.WriteLine($"Aucune décision valide obtenue pour {symbol}. Analyse ignorée.");
             return;
         }
 
+        var tradingDecisionTest = new TradingDecision
+        {
+            Action = "BUY",
+            SL = 95900m,
+            TP = 96800.60m,
+            Confidence = "Medium"
+        };
+
         // Étape 3 : Exécution de la décision de trading
-        Console.WriteLine("Exécution de la décision de trading : {decision.Action} pour {symbol}");
-        await tradingExecutionService.ExecuteTradingDecisionAsync(decision, symbol, userPreferences.Budget);
+        Console.WriteLine($"Exécution de la décision de trading : {tradingDecisionTest.Action} pour {symbol}");
+        await tradingExecutionService.ExecuteTradingDecisionAsync(tradingDecisionTest, symbol, userPreferences.Budget);
     }
     catch (Exception ex)
     {
-        Console.WriteLine("Erreur lors de l'exécution de l'analyse et du trading pour {symbol}.", ex);
+        Console.WriteLine($"Erreur lors de l'exécution de l'analyse et du trading pour {symbol}.", ex);
         throw;
     }
 }
