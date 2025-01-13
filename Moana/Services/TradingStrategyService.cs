@@ -9,9 +9,9 @@ namespace Moana.Services
     {
         private readonly OpenAIService _openAIService;
         private readonly DataAggregatorService _dataAggregatorService;
-        private readonly ILogger<TradingStrategyService> _logger;
+        private readonly LoggerService _logger;
 
-        public TradingStrategyService(OpenAIService openAIService, DataAggregatorService dataAggregatorService, ILogger<TradingStrategyService> logger)
+        public TradingStrategyService(OpenAIService openAIService, DataAggregatorService dataAggregatorService, LoggerService logger)
         {
             _openAIService = openAIService;
             _dataAggregatorService = dataAggregatorService;
@@ -34,7 +34,14 @@ namespace Moana.Services
             {
                 // Envoyer à OpenAI pour analyse
                 var aiResponse = await _openAIService.AnalyzeMarketDataAsync(marketDataJson);
+
+                _logger.LogInformation($"DATA : {marketDataJson}", "DATA");
+
+                _logger.LogInformation($"Analyse terminée.", "APPLICATION");
+                _logger.LogInformation($"Analyse terminée. Résultat d'analyse : {aiResponse}", "DATA");
+                
                 return aiResponse; // Retourne la stratégie suggérée par OpenAI
+
             }
             else
             {
@@ -45,11 +52,18 @@ namespace Moana.Services
                 var response = new
                 {
                     Symbol = symbol,
-                    Action = localStrategy.Action,
+                    localStrategy.Action,
                     StopLoss = localStrategy.SL,
                     TakeProfit = localStrategy.TP,
-                    Confidence = localStrategy.Confidence
+                    localStrategy.Confidence
                 };
+
+                _logger.LogInformation($"DATA : {marketDataJson}", "DATA");
+
+                _logger.LogInformation($"ACTION : {response.Action} | SL : {response.StopLoss} | TP : {response.TakeProfit}", "DATA");
+
+                _logger.LogInformation($"Analyse terminée.", "APPLICATION");
+                _logger.LogInformation($"Analyse terminée.", "DATA");
 
                 return JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true });
             }
@@ -78,7 +92,8 @@ namespace Moana.Services
                 if (userPreferences == null)
                     throw new ArgumentNullException(nameof(userPreferences), "Les préférences utilisateur ne peuvent pas être nulles.");
 
-                _logger.LogInformation("Exécution de la stratégie pour le symbole {Symbol}.", aggregatedData.Symbol);
+                _logger.LogInformation($"Exécution de la stratégie local pour le symbole {aggregatedData.Symbol}.", "APPLICATION");
+                _logger.LogInformation($"Exécution de la stratégie local pour le symbole {aggregatedData.Symbol}.", "DATA");
 
                 // **1. Analyse des indicateurs techniques**
                 // RSI : Ajustement dynamique des seuils selon la volatilité
@@ -139,7 +154,7 @@ namespace Moana.Services
                 // **9. Prise de décision basée sur des règles pondérées**
                 if (isOversold && macdBullish && trendDirection == "Uptrend" && isNearSupport)
                 {
-                    _logger.LogInformation("Signal BUY détecté pour {Symbol}.", aggregatedData.Symbol);
+                    _logger.LogInformation($"Signal ACHAT détecté.");
                     return new TradingDecision
                     {
                         Action = "BUY",
@@ -151,7 +166,7 @@ namespace Moana.Services
 
                 if (isOverbought && macdBearish && trendDirection == "Downtrend" && isNearResistance)
                 {
-                    _logger.LogInformation("Signal SELL détecté pour {Symbol}.", aggregatedData.Symbol);
+                    _logger.LogInformation($"Signal VENTE détecté.");
                     return new TradingDecision
                     {
                         Action = "SELL",
@@ -161,7 +176,7 @@ namespace Moana.Services
                     };
                 }
 
-                _logger.LogInformation("Aucune action significative détectée pour {Symbol}. Recommandation : HOLD.", aggregatedData.Symbol);
+                _logger.LogInformation($"Aucune action significative détectée. Recommandation : HOLD.");
                 return new TradingDecision
                 {
                     Action = "HOLD",
@@ -172,7 +187,7 @@ namespace Moana.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors de l'exécution de la stratégie pour {Symbol}.", aggregatedData.Symbol);
+                _logger.LogError($"Erreur lors de l'exécution de la stratégie.", "ERROR");
                 throw;
             }
         }

@@ -11,11 +11,13 @@ namespace Moana.Services
     {
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
+        private readonly LoggerService _logger;
 
-        public OpenAIService(HttpClient httpClient, IOptions<OpenAIOptions> options)
+        public OpenAIService(HttpClient httpClient, IOptions<OpenAIOptions> options, LoggerService logger)
         {
             _httpClient = httpClient;
             _apiKey = options.Value.ApiKey;
+            _logger = logger;
 
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
         }
@@ -38,6 +40,7 @@ namespace Moana.Services
             var response = await _httpClient.PostAsync("https://api.openai.com/v1/chat/completionsT", requestContent);
             if (!response.IsSuccessStatusCode)
             {
+                _logger.LogError("OpenAI : Erreur lors de l'appel à OpenAI.", "API");
                 return "Erreur lors de l'appel à OpenAI.";
             }
 
@@ -75,19 +78,24 @@ namespace Moana.Services
                 // Vérification si `Choices` existe et contient des données
                 if (responseData?.Choices != null && responseData.Choices.Any())
                 {
+                    _logger.LogInformation("Analyse des données du marché par OpenAI (ChatGPT)", "APPLICATION");
+                    _logger.LogInformation("Analyse des données du marché par OpenAI (ChatGPT)", "DATA");
                     return responseData.Choices.First().Message.Content;
                 }
                 else
                 {
+                    _logger.LogError($"OpenAI : La réponse de l'API OpenAI ne contient pas de choix valides. {responseData}", "API");
                     return "La réponse de l'API OpenAI ne contient pas de choix valides.";
                 }
             }
             catch (HttpRequestException ex)
             {
+                _logger.LogError($"OpenAI : Erreur HTTP lors de l'analyse des données de marché : {ex.Message}", "API");
                 return $"Erreur HTTP lors de l'analyse des données de marché : {ex.Message}";
             }
             catch (Exception ex)
             {
+                _logger.LogError($"OpenAI : Erreur lors de l'analyse des données de marché : {ex.Message}", "API");
                 return $"Erreur lors de l'analyse des données de marché : {ex.Message}";
             }
         }

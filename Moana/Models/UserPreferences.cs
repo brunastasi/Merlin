@@ -3,6 +3,8 @@
     public class UserPreferences
     {
         public decimal Budget { get; set; } // Budget total alloué
+
+        public int Leverage { get; set; }
         public RiskManagement RiskManagement { get; set; }
     }
 

@@ -1,10 +1,7 @@
-using Binance.Net.Enums;
 using Moana.Configurations;
 using Moana.Models;
-using Moana.Models.MarketData;
 using Moana.Services;
 using Moana.Services.MarketData;
-using System.Net.Http;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,6 +12,8 @@ builder.Services.Configure<NewsAPIOptions>(builder.Configuration.GetSection("API
 builder.Services.Configure<AlphaVantageOptions>(builder.Configuration.GetSection("API").GetSection("AlphaVantage"));
 
 // Add services to the container.
+builder.Services.AddSingleton<LoggerService>();
+
 builder.Services.AddHttpClient<BinanceService>();
 builder.Services.AddHttpClient<OpenAIService>();
 builder.Services.AddHttpClient<NewsAPIService>();
@@ -37,6 +36,9 @@ builder.Services.AddScoped<TradingExecutionService>();
 var serviceProvider = builder.Services.BuildServiceProvider();
 
 // Récupérer BinanceService depuis le conteneur DI
+var loggerService = serviceProvider.GetRequiredService<LoggerService>();
+loggerService.LogInformation("Lancement du BOT DE TRADING", "APPLICATION");
+
 var binanceService = serviceProvider.GetRequiredService<BinanceService>();
 var openAIService = serviceProvider.GetRequiredService<OpenAIService>();
 var volumeService = serviceProvider.GetRequiredService<VolumeService>();
@@ -311,14 +313,14 @@ async Task ExecuteAnalyzeAndTradeAsync(
         var tradingDecisionTest = new TradingDecision
         {
             Action = "BUY",
-            SL = 95900m,
-            TP = 96800.60m,
+            SL = 94070m,
+            TP = 96700.60m,
             Confidence = "Medium"
         };
 
         // Étape 3 : Exécution de la décision de trading
-        Console.WriteLine($"Exécution de la décision de trading : {tradingDecisionTest.Action} pour {symbol}");
-        await tradingExecutionService.ExecuteTradingDecisionAsync(tradingDecisionTest, symbol, userPreferences.Budget);
+        Console.WriteLine($"Exécution de la décision de trading : {decision.Action} pour {symbol}");
+        await tradingExecutionService.ExecuteTradingDecisionAsync(decision, symbol, userPreferences.Budget, userPreferences.Leverage);
     }
     catch (Exception ex)
     {
@@ -334,13 +336,14 @@ await ExecuteAnalyzeAndTradeAsync(
     userPreferences: new UserPreferences
     {
         Budget = 1000, // Défini ici
+        Leverage = 5,
         RiskManagement = new RiskManagement
         {
             StopLoss = 5, // StopLoss en pourcentage
             TakeProfit = 10 // TakeProfit en pourcentage
         }
     },
-    useAIAnalysis: false);
+    useAIAnalysis: true);
 
 
 

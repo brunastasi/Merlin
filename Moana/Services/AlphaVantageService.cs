@@ -12,11 +12,13 @@ namespace Moana.Services
     {
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
+        private readonly LoggerService _logger;
 
-        public AlphaVantageService(HttpClient httpClient, IOptions<AlphaVantageOptions> options)
+        public AlphaVantageService(HttpClient httpClient, IOptions<AlphaVantageOptions> options, LoggerService logger)
         {
             _httpClient = httpClient;
             _apiKey = options.Value.ApiKey;
+            _logger = logger;
         }
 
         /// <summary>
@@ -29,7 +31,10 @@ namespace Moana.Services
             var response = await _httpClient.GetFromJsonAsync<AlphaVantageApiResponse>(url);
 
             if (response?.Data == null || !response.Data.Any())
+            {
+                _logger.LogError("AlphaVantage : Impossible de récupérer les données du PIB réel.", "ERROR");
                 throw new Exception("Impossible de récupérer les données du PIB réel.");
+            }
 
             return response.Data;
         }
@@ -44,7 +49,10 @@ namespace Moana.Services
             var response = await _httpClient.GetFromJsonAsync<AlphaVantageApiResponse>(url);
 
             if (response?.Data == null || !response.Data.Any())
+            {
+                _logger.LogError("AlphaVantage : Impossible de récupérer les données des rendements des obligations.", "ERROR");
                 throw new Exception("Impossible de récupérer les données des rendements des obligations.");
+            }
 
             return response.Data;
         }
@@ -59,7 +67,10 @@ namespace Moana.Services
             var response = await _httpClient.GetFromJsonAsync<AlphaVantageApiResponse>(url);
 
             if (response?.Data == null || !response.Data.Any())
+            {
+                _logger.LogError("AlphaVantage : Impossible de récupérer les données de l'indice des prix à la consommation.", "ERROR");
                 throw new Exception("Impossible de récupérer les données de l'indice des prix à la consommation.");
+            }
 
             return response.Data;
         }
@@ -71,7 +82,10 @@ namespace Moana.Services
             var response = await _httpClient.GetFromJsonAsync<AlphaVantageApiResponse>(url);
 
             if (response?.Data == null || !response.Data.Any())
+            {
+                _logger.LogError("AlphaVantage : Impossible de récupérer les données du taux de chômage.", "ERROR");
                 throw new Exception("Impossible de récupérer les données du taux de chômage.");
+            }
 
             return response.Data;
         }
@@ -83,7 +97,10 @@ namespace Moana.Services
             var response = await _httpClient.GetFromJsonAsync<AlphaVantageApiResponse>(url);
 
             if (response?.Data == null || !response.Data.Any())
+            {
+                _logger.LogError("AlphaVantage : Impossible de récupérer les données de l'inflation.", "ERROR");
                 throw new Exception("Impossible de récupérer les données de l'inflation.");
+            }
 
             return response.Data;
         }
@@ -104,16 +121,24 @@ namespace Moana.Services
             if (jsonResponse.ContainsKey("Note") || jsonResponse.ContainsKey("Error Message"))
             {
                 string errorMessage = jsonResponse.ContainsKey("Note") ? jsonResponse["Note"].ToString() : jsonResponse["Error Message"].ToString();
+
+                _logger.LogError($"AlphaVantage : Erreur de l'API Alpha Vantage : {errorMessage}", "ERROR");
                 throw new Exception($"Erreur de l'API Alpha Vantage : {errorMessage}");
             }
 
             var timeSeriesKey = type.ToLower() == "crypto" ? "Time Series (Digital Currency Daily)" : $"Time Series ({interval})";
             if (!jsonResponse.ContainsKey(timeSeriesKey))
+            {
+                _logger.LogError("AlphaVantage : Les données historiques ne sont pas disponibles.", "ERROR");
                 throw new Exception("Les données historiques ne sont pas disponibles.");
+            }
 
             var timeSeries = jsonResponse[timeSeriesKey] as JsonElement?;
             if (timeSeries == null)
+            {
+                _logger.LogError("AlphaVantage : Les données historiques ne sont pas disponibles.", "ERROR");
                 throw new Exception("Les données historiques ne sont pas disponibles.");
+            }
 
             var prices = new List<decimal>();
             foreach (var element in timeSeries.Value.EnumerateObject())
@@ -126,6 +151,7 @@ namespace Moana.Services
                     }
                     else
                     {
+                        _logger.LogWarning($"AlphaVantage : Impossible de convertir {closePrice.GetString()} en decimal pour la date {element.Name}.", "ERROR");
                         Console.WriteLine($"Impossible de convertir {closePrice.GetString()} en decimal pour la date {element.Name}.");
                     }
                 }
