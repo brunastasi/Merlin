@@ -1,8 +1,8 @@
 ﻿using Binance.Net.Enums;
 using Binance.Net.Objects.Models.Futures;
-using Moana.Models;
+using Merlin.Models;
 
-namespace Moana.Services
+namespace Merlin.Services
 {
     public class TradingExecutionService
     {
@@ -35,7 +35,7 @@ namespace Moana.Services
                     case "HOLD":
                         _logger.LogInformation($"Aucune action à prendre pour {symbol}. Décision HOLD.", "TRADING");
                         break;
-                          
+
                     default:
                         _logger.LogWarning($"Action inconnue : {decision.Action}", "TRADING");
                         break;

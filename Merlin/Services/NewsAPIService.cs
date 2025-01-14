@@ -1,9 +1,9 @@
 ﻿using Microsoft.Extensions.Options;
-using Moana.Configurations;
-using Moana.Models.ApiData;
+using Merlin.Configurations;
+using Merlin.Models.ApiData;
 using System.Net.Http.Json;
 
-namespace Moana.Services
+namespace Merlin.Services
 {
     public class NewsAPIService
     {

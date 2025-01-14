@@ -1,4 +1,4 @@
-﻿namespace Moana.Models
+﻿namespace Merlin.Models
 {
     public class UserPreferences
     {

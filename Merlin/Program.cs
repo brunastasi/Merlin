@@ -1,16 +1,16 @@
-using Microsoft.Extensions.DependencyInjection;
+ï»¿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Moana.Configurations;
-using Moana.Models;
-using Moana.Services;
-using Moana.Services.MarketData;
+using Merlin.Configurations;
+using Merlin.Models;
+using Merlin.Services;
+using Merlin.Services.MarketData;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 
 // Configuration des services dans une application console
 var services = new ServiceCollection();
 
-// Charger la configuration à partir du fichier appsettings.json
+// Charger la configuration Ã  partir du fichier appsettings.json
 var configuration = new ConfigurationBuilder()
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
@@ -23,7 +23,8 @@ services.Configure<NewsAPIOptions>(configuration.GetSection("API").GetSection("N
 services.Configure<AlphaVantageOptions>(configuration.GetSection("API").GetSection("AlphaVantage"));
 services.Configure<UserPreferences>(configuration.GetSection("TradingSettings"));
 
-// Ajouter les services nécessaires
+
+// Ajouter les services nÃ©cessaires
 services.AddSingleton<LoggerService>();
 
 services.AddHttpClient<BinanceService>();
@@ -48,9 +49,9 @@ services.AddScoped<TradingExecutionService>();
 // Construire le conteneur de services
 var serviceProvider = services.BuildServiceProvider();
 
-// Récupérer les services nécessaires
+// RÃ©cupÃ©rer les services nÃ©cessaires
 var loggerService = serviceProvider.GetRequiredService<LoggerService>();
-loggerService.LogInformation("Lancement du BOT DE TRADING", "APPLICATION");
+Console.WriteLine("Lancement du BOT DE TRADING");
 
 var binanceService = serviceProvider.GetRequiredService<BinanceService>();
 var openAIService = serviceProvider.GetRequiredService<OpenAIService>();
@@ -69,7 +70,7 @@ var dataAggregatorService = serviceProvider.GetRequiredService<DataAggregatorSer
 var tradingStrategyService = serviceProvider.GetRequiredService<TradingStrategyService>();
 var tradingExecutionService = serviceProvider.GetRequiredService<TradingExecutionService>();
 
-// Fonction principale pour exécuter l'analyse et le trading
+// Fonction principale pour exÃ©cuter l'analyse et le trading
 async Task ExecuteAnalyzeAndTradeAsync(
     string symbol,
     List<(string Asset, string Type)> assets,
@@ -78,38 +79,38 @@ async Task ExecuteAnalyzeAndTradeAsync(
 {
     try
     {
-        loggerService.LogInformation($"Démarrage de l'analyse et du trading pour {symbol}", "TRADING");
+        loggerService.LogInformation($"DÃ©marrage de l'analyse et du trading pour {symbol}", "TRADING");
 
-        // Étape 1 : Analyse des données du marché
+        // Ã‰tape 1 : Analyse des donnÃ©es du marchÃ©
         string analysisResult = await tradingStrategyService.AnalyzeAndExecuteStrategyAsync(symbol, assets, userPreferences, useAIAnalysis);
 
-        // Étape 2 : Conversion des résultats en TradingDecision
+        // Ã‰tape 2 : Conversion des rÃ©sultats en TradingDecision
         var decision = JsonSerializer.Deserialize<TradingDecision>(analysisResult);
 
         if (decision == null || string.IsNullOrWhiteSpace(decision.Action))
         {
-            loggerService.LogInformation($"Aucune décision valide obtenue pour {symbol}. Analyse ignorée.", "TRADING");
+            loggerService.LogInformation($"Aucune dÃ©cision valide obtenue pour {symbol}. Analyse ignorÃ©e.", "TRADING");
             return;
         }
 
-        // Étape 3 : Exécution de la décision de trading
+        // Ã‰tape 3 : ExÃ©cution de la dÃ©cision de trading
         await tradingExecutionService.ExecuteTradingDecisionAsync(decision, symbol, userPreferences.Budget, userPreferences.Leverage);
     }
     catch (Exception ex)
     {
-        loggerService.LogError($"Erreur lors de l'exécution de l'analyse et du trading pour {symbol} : {ex.Message}", "ERROR");
+        loggerService.LogError($"Erreur lors de l'exÃ©cution de l'analyse et du trading pour {symbol} : {ex.Message}", "ERROR");
         throw;
     }
 }
 
-// Exécution du bot
+// ExÃ©cution du bot
 await ExecuteAnalyzeAndTradeAsync(
     symbol: userPreferences.Symbol,
     assets: userPreferences.Assets,
     userPreferences: userPreferences,
     useAIAnalysis: userPreferences.UseAIAnalysis);
 
-Console.WriteLine("Exécution du BOT de trading terminée.");
+Console.WriteLine("ExÃ©cution du BOT de trading terminÃ©e.");
 
 Console.WriteLine("Appuyez sur une touche pour quitter...");
 Console.ReadKey();

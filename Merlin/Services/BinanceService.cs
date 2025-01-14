@@ -8,15 +8,16 @@ using Binance.Net.Objects.Models.Spot;
 using CryptoExchange.Net.Authentication;
 using CryptoExchange.Net.Objects;
 using CryptoExchange.Net.Objects.Sockets;
+using Merlin.Configurations;
 using Microsoft.Extensions.Options;
-using Moana.Configurations;
-using Moana.Models.ApiData;
+using Merlin.Configurations;
+using Merlin.Models.ApiData;
 using Newtonsoft.Json;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
-namespace Moana.Services
+namespace Merlin.Services
 {
     public class BinanceService
     {
@@ -483,7 +484,7 @@ namespace Moana.Services
                     activationPrice: activationPrice,
                     timeInForce: type == FuturesOrderType.Market ? null : timeInForce,
                     reduceOnly: sendReduceOnly ? reduceOnly : null,
-                    closePosition: (type == FuturesOrderType.StopMarket || type == FuturesOrderType.TakeProfitMarket) ? true : null,
+                    closePosition: type == FuturesOrderType.StopMarket || type == FuturesOrderType.TakeProfitMarket ? true : null,
                     positionSide: positionSide // Ajout pour définir une position spécifique en Hedge Mode
                 );
 

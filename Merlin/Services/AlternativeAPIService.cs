@@ -1,7 +1,7 @@
-﻿using Moana.Models.ApiData;
+﻿using Merlin.Models.ApiData;
 using System.Net.Http.Json;
 
-namespace Moana.Services
+namespace Merlin.Services
 {
     public class AlternativeAPIService
     {

@@ -1,13 +1,13 @@
 ﻿using Microsoft.Extensions.Options;
-using Moana.Configurations;
-using Moana.Models.ApiData;
-using Moana.Models.MarketData;
-using Moana.Services.Utils;
+using Merlin.Configurations;
+using Merlin.Models.ApiData;
+using Merlin.Models.MarketData;
+using Merlin.Services.Utils;
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-namespace Moana.Services
+namespace Merlin.Services
 {
     public class AlphaVantageService
     {

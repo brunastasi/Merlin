@@ -1,9 +1,9 @@
-﻿using Moana.Models;
-using Moana.Models.MarketData;
-using Moana.Services.MarketData;
+﻿using Merlin.Models;
+using Merlin.Models.MarketData;
+using Merlin.Services.MarketData;
 using System.Text.Json;
 
-namespace Moana.Services
+namespace Merlin.Services
 {
     public class TradingStrategyService
     {
@@ -39,7 +39,7 @@ namespace Moana.Services
 
                 Console.WriteLine($"Analyse terminée. Résultat d'analyse : {aiResponse}");
                 _logger.LogInformation($"Analyse terminée. Résultat d'analyse : {aiResponse}", "DATA");
-                
+
                 return aiResponse; // Retourne la stratégie suggérée par OpenAI
 
             }
